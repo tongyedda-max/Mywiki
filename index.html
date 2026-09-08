@@ -57,6 +57,11 @@ h1.pt{font-size:22px}
 <body>
 <div id="err"></div>
 <div id="app"></div>
+ <script>
+window.onerror=function(m){var e=document.getElementById("err");e.style.display="block";e.textContent="⚠️ "+m;return false};
+window.addEventListener("unhandledrejection",function(e){var r=e.reason;window.onerror((r&&r.message)?r.message:String(r))});
+</script>
+
 <script>
 window.onerror=function(m){var e=document.getElementById("err");e.style.display="block";e.textContent="⚠️ "+m;return false};
 

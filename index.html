@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wiki</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f7f4;color:#222;font-size:15px}
+#err{position:fixed;top:0;left:0;right:0;background:#b00;color:#fff;font-size:12px;padding:6px 10px;z-index:9999;display:none;white-space:pre-wrap}
+button{font-family:inherit;cursor:pointer;border:none;background:none;font-size:14px;color:inherit}
+input{font-family:inherit;font-size:16px;border:1px solid #ccc;border-radius:10px;padding:10px 12px;width:100%;background:#fff;outline:none}
+input:focus{border-color:#8b5cf6}
+.btn{background:#8b5cf6;color:#fff;font-weight:bold;border-radius:10px;padding:11px 16px}
+.card{background:#fff;border:1px solid #e5e3de;border-radius:14px}
+hr{border:none;border-top:1px solid #e5e3de;margin:6px 0}
+#burger{position:fixed;top:10px;left:10px;z-index:60;width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid #e5e3de;font-size:17px}
+#mask{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:55;display:none}
+#sb{position:fixed;top:0;left:0;bottom:0;width:232px;background:#f2f0eb;border-right:1px solid #e5e3de;z-index:70;display:none;flex-direction:column}
+#sb.open{display:flex}
+#sbBody{flex:1;overflow-y:auto;padding:10px 8px}
+.sbi{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 9px;border-radius:9px;font-size:14px}
+.sbLabel{padding:8px 9px 2px;font-size:11px;font-weight:bold;color:#9a958c}
+#logout{margin:8px;padding:8px;border-radius:9px;color:#777;font-size:12px;text-align:left}
+#logo{padding:6px 9px 10px;font-weight:bold;font-size:15px}
+#wrap{display:flex;min-height:100vh}
+#main{flex:1;min-width:0}
+.pad{max-width:720px;margin:0 auto;padding:60px 16px 70px}
+.searchrow{display:flex;gap:8px;margin-bottom:18px}
+.chip{display:inline-block;background:#fff;border:1px solid #e5e3de;border-radius:999px;padding:6px 12px;font-size:13px;margin:0 6px 6px 0;text-decoration:none;color:#222}
+.rowitem{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid #f0eeea}
+.rowitem a{flex:1;min-width:0;text-decoration:none;color:#6d28d9;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.time{font-size:11px;color:#aaa;white-space:nowrap}
+.star{font-size:16px;width:26px}
+h2.sec{font-size:12px;font-weight:bold;color:#9a958c;margin:0 0 8px}
+.empty{padding:22px;text-align:center;color:#b5b0a7;font-size:13px}
+</style>
+</head>
+<body>
+<div id="err"></div>
+<div id="app"></div>
+<script>
+window.onerror=function(m){var e=document.getElementById("err");e.style.display="block";e.textContent="⚠️ "+m;return false};
+</script>
+<script>
+var SUPA_URL="https://xlplarozmcjcqgvfsyaj.supabase.co";
+var SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhscGxhcm96bWNqY3FndmZzeWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTk0MzAsImV4cCI6MjEwNDQzNTQzMH0.ObTyjGPjlZbCjrMVQzllCmFIKYaDRnVL-3CXXgY21mQ
+  ";
+</script>
+<script>
+/* ═══ 換上面兩行 var SUPA_URL 同 var SUPA_KEY ═══ */
+
+if(SUPA_URL===""){
+  document.getElementById("app").innerHTML='<h2 style="padding:40px">未設定 SUPA_URL / SUPA_KEY</h2>';
+}else{
+  start();
+}
+
+function start(){
+  var SDB=supabase.createClient(SUPA_URL,SUPA_KEY);
+  var ME=null;
+  var FAVS={};
+  var RECENT=[];
+  var MODE="login";
+
+  window.addEventListener("hashchange",route);
+  SDB.auth.getSession().then(function(res){
+    ME=res.data.session ? res.data.session.user : null;
+    route();
+  });
+  SDB.auth.onAuthStateChange(function(ev,session){
+    ME=session ? session.user : null;
+    route();
+  });
+
+  function el(id){return document.getElementById(id)}
+  function esc(s){
+    s=String(s==null?"":s);
+    s=s.split("&").join("&amp;");
+    s=s.split("<").join("&lt;");
+    s=s.split(">").join("&gt;");
+    return s;
+  }
+  function toast(msg){
+    var t=document.createElement("div");
+    t.textContent=msg;
+    t.style.cssText="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#333;color:#fff;font-size:13px;padding:9px 16px;border-radius:999px;z-index:9999";
+    document.body.appendChild(t);
+    setTimeout(function(){t.remove()},2200);
+  }
+  function timeAgo(iso){
+    var s=(Date.now()-new Date(iso).getTime())/1000;
+    if(s<60)return"剛剛";
+    if(s<3600)return Math.floor(s/60)+"分鐘前";
+    if(s<86400)return Math.floor(s/3600)+"小時前";
+    return new Date(iso).toLocaleDateString("zh-HK");
+  }
+  function journalTitle(){
+    var M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var d=new Date();
+    var day=d.getDate();
+    var suf="th";
+    if(day==1||(day>20&&day%10==1))suf="st";
+    else if(day==2||(day>20&&day%10==2))suf="nd";
+    else if(day==3||(day>20&&day%10==3))suf="rd";
+    return M[d.getMonth()]+" "+day+suf+", "+d.getFullYear();
+  }
+
+  function route(){
+    if(!ME){viewAuth();return}
+    var h=location.hash||"#/";
+    var m=h.match(/^#\/page\/([0-9a-f-]{10,})/i);
+    if(m){viewPage(m[1]);}else{viewHome();}
+  }
+
+  /* ---- 登入 ---- */
+  function viewAuth(){
+    var html="";
+    html+='<div style="min-height:100vh;display:grid;place-items:center;padding:20px">';
+    html+='<div class="card" style="padding:22px;max-width:360px;width:100%">';
+    html+='<h1 style="font-size:20px">📚 知識維基</h1>';
+    html+='<p style="color:#999;font-size:13px;margin:4px 0 14px">使用 Email 登入</p>';
+    html+='<input id="em" placeholder="Email" style="margin-bottom:8px">';
+    html+='<input id="pw" type="password" placeholder="密碼（至少6位）">';
+    html+='<p id="amsg" style="color:#c22;font-size:12px;margin:8px 0 0"></p>';
+    html+='<button class="btn" style="width:100%;margin:10px 0" id="btnGo">進入</button>';
+    html+='</div></div>';
+    el("app").innerHTML=html;
+    el("btnGo").onclick=submitAuth;
+    el("pw").addEventListener("keydown",function(e){if(e.key==="Enter")submitAuth();});
+  }
+  async function submitAuth(){
+    el("amsg").textContent="";
+    var em=el("em").value.trim();
+    var pw=el("pw").value;
+    var r=await SDB.auth.signInWithPassword({email:em,password:pw});
+    if(r.error){
+      el("amsg").textContent=r.error.message;
+      return;
+    }
+    ME=r.data.user;
+    route();
+  }
+  async function logout(){
+    await SDB.auth.signOut();
+    ME=null;
+    route();
+  }
+
+  /* ---- 外殼 ---- */
+  function buildShell(){
+    var html="";
+    html+='<div id="wrap">';
+    html+='<button id="burger">☰</button>';
+    html+='<div id="mask"></div>';
+    html+='<aside id="sb">';
+    html+='<div id="sbBody">';
+    html+='<div id="logo">📚 知識維基</div>';
+    html+='<button class="sbi" data-act="home">🔍 搜索</button>';
+    html+='<button class="sbi" data-act="newpage">＋ 新增頁面</button>';
+    html+='<hr>';
+    html+='<button class="sbi" data-act="journal">🗓 今日日記</button>';
+    html+='<button class="sbi" data-act="graph">🌌 知識圖譜</button>';
+    html+='<button class="sbi" data-act="allpages">📚 所有頁面</button>';
+    html+='<hr>';
+    html+='<div class="sbLabel">⭐ 收藏</div>';
+    html+='<div id="sbFavs"></div>';
+    html+='<hr>';
+    html+='<button class="sbi" data-act="tools">🧰 工具箱 ▸</button>';
+    html+='<button class="sbi" data-act="console">⚙️ 控制台</button>';
+    html+='<button class="sbi" data-act="help">❓ 說明</button>';
+    html+='</div>';
+    html+='<button id="logout">⎋ 登出</button>';
+    html+='</aside>';
+    html+='<main id="main"></main>';
+    html+='</div>';
+    el("app").innerHTML=html;
+    el("burger").onclick=sidebarOpen;
+    el("mask").onclick=sidebarClose;
+    el("logout").onclick=logout;
+    var btns=document.querySelectorAll(".sbi");
+    for(var i=0;i<btns.length;i++){
+      btns[i].onclick=onSideBtn;
+    }
+    renderSbFavs();
+  }
+  function sidebarOpen(){el("sb").style.display="flex";el("mask").style.display="block"}
+  function sidebarClose(){el("sb").style.display="none";el("mask").style.display="none"}
+  function onSideBtn(){
+    var act=this.getAttribute("data-act");
+    if(act==="home"||act==="newpage"||act==="allpages"){
+      sidebarClose();location.hash="#/";viewHome();
+    }else if(act==="journal"){
+      sidebarClose();openJournal();
+    }else if(act==="graph"){
+      sidebarClose();comingSoon("🌌 知識圖譜（Phase 5）");
+    }else if(act==="tools"){
+      sidebarClose();comingSoon("🧰 工具箱（Phase 3-4）");
+    }else if(act==="console"){
+      sidebarClose();comingSoon("⚙️ 控制台（Phase 6）");
+    }else if(act==="help"){
+      sidebarClose();comingSoon("❓ 說明（Phase 2）");
+    }
+  }
+  function comingSoon(txt){
+    el("main").innerHTML='<div class="pad"><div class="card empty" style="padding:40px 20px">'+txt+'</div></div>';
+  }
+
+  async function renderSbFavs(){
+    var box=el("sbFavs");
+    if(!box)return;
+    var r=await SDB.from("favorites").select("pages(id,title,icon)").order("created_at");
+    var rows=[];
+    var data=r.data||[];
+    for(var i=0;i<data.length;i++){
+      var p=data[i].pages;
+      if(p)rows.push(p);
+    }
+    if(rows.length===0){
+      box.innerHTML='<div class="sbLabel" style="color:#c9c4bb">喺頁面撳☆收藏</div>';
+      return;
+    }
+    var html="";
+    for(var j=0;j<rows.length;j++){
+      html+='<button class="sbi" data-goto="'+rows[j].id+'">'+(rows[j].icon||"📄")+" "+esc(rows[j].title)+'</button>';
+    }
+    box.innerHTML=html;
+    var btns=box.querySelectorAll("button");
+    for(var k=0;k<btns.length;k++){
+      btns[k].onclick=function(){
+        sidebarClose();
+        location.hash="#/page/"+this.getAttribute("data-goto");
+      };
+    }
+  }
+
+  /* ---- 首頁 ---- */
+  async function viewHome(){
+    if(!el("wrap"))buildShell();
+    sidebarClose();
+    var html="";
+    html+='<div class="pad">';
+    html+='<div class="searchrow">';
+    html+='<input id="q" placeholder="搜尋…／輸入新頁名（支持 音樂/莫扎特）">';
+    html+='<button class="btn" id="btnNew">＋ 新增</button>';
+    html+='</div>';
+    html+='<div id="favBox" style="margin-bottom:16px"></div>';
+    html+='<h2 class="sec">⏱ 最近修改</h2>';
+    html+='<div class="card" id="recentBox"><div class="empty">載入中…</div></div>';
+    html+='</div>';
+    el("main").innerHTML=html;
+    el("btnNew").onclick=quickCreate;
+    el("q").addEventListener("keydown",function(e){if(e.key==="Enter")quickCreate();});
+    el("q").addEventListener("input",filterRecent);
+    await loadHome();
+  }
+  async function loadHome(){
+    var a=await SDB.from("pages").select("id,title,icon,source,is_journal,updated_at").order("updated_at",{ascending:false}).limit(50);
+    RECENT=a.data||[];
+    var b=await SDB.from("favorites").select("page_id");
+    FAVS={};
+    var fb=b.data||[];
+    for(var i=0;i<fb.length;i++){FAVS[fb[i].page_id]=1;}
+    drawFavChips();
+    drawRecent();
+  }
+  function drawFavChips(){
+    var box=el("favBox");
+    if(!box)return;
+    var favs=[];
+    for(var i=0;i<RECENT.length;i++){
+      if(FAVS[RECENT[i].id])favs.push(RECENT[i]);
+    }
+    if(favs.length===0){box.innerHTML="";return}
+    var html='<h2 class="sec">⭐ 收藏</h2>';
+    for(var j=0;j<favs.length;j++){
+      html+='<a class="chip" href="#/page/'+favs[j].id+'">'+(favs[j].icon||"📄")+" "+esc(favs[j].title)+'</a>';
+    }
+    box.innerHTML=html;
+  }
+  function drawRecent(){
+    var box=el("recentBox");
+    if(!box)return;
+    if(RECENT.length===0){
+      box.innerHTML='<div class="empty">仲未有頁面——喺上面打個名撳 Enter 就建到 ✨</div>';
+      return;
+    }
+    var html="";
+    for(var i=0;i<RECENT.length;i++){
+      var p=RECENT[i];
+      html+='<div class="rowitem">';
+      html+='<button class="star" data-fav="'+p.id+'">'+(FAVS[p.id]?"⭐":"☆")+'</button>';
+      html+='<a href="#/page/'+p.id+'">'+(p.icon||"📄")+" "+esc(p.title)+'</a>';
+      html+='<span class="time">'+timeAgo(p.updated_at)+'</span>';
+      html+='</div>';
+    }
+    box.innerHTML=html;
+    var stars=box.querySelectorAll(".star");
+    for(var k=0;k<stars.length;k++){
+      stars[k].onclick=function(){toggleFav(this.getAttribute("data-fav"))};
+    }
+  }
+  function filterRecent(){
+    var q=el("q").value.trim().toLowerCase();
+    var list=[];
+    for(var i=0;i<RECENT.length;i++){
+      if(RECENT[i].title.toLowerCase().indexOf(q)>=0)list.push(RECENT[i]);
+    }
+    var box=el("recentBox");
+    if(!box)return;
+    var html="";
+    for(var j=0;j<list.length;j++){
+      var p=list[j];
+      html+='<div class="rowitem">';
+      html+='<button class="star" data-fav="'+p.id+'">'+(FAVS[p.id]?"⭐":"☆")+'</button>';
+      html+='<a href="#/page/'+p.id+'">'+(p.icon||"📄")+" "+esc(p.title)+'</a>';
+      html+='<span class="time">'+timeAgo(p.updated_at)+'</span>';
+      html+='</div>';
+    }
+    box.innerHTML=html;
+    var stars=box.querySelectorAll(".star");
+    for(var k=0;k<stars.length;k++){
+      stars[k].onclick=function(){toggleFav(this.getAttribute("data-fav"))};
+    }
+  }
+  async function toggleFav(id){
+    if(FAVS[id]){
+      var d=await SDB.from("favorites").delete().eq("page_id",id);
+      if(d.error){toast(d.error.message);return}
+      FAVS[id]=0;
+    }else{
+      var i=await SDB.from("favorites").insert({user_id:ME.id,page_id:id});
+      if(i.error){toast("收藏失敗："+i.error.message);return}
+      FAVS[id]=1;
+    }
+    renderSbFavs();
+    if(el("recentBox"))drawRecent();
+    if(el("favBox"))drawFavChips();
+  }
+
+  /* ---- 智能建頁 ---- */
+  async function quickCreate(){
+    var path=el("q").value.trim();
+    if(!path)return;
+    var segs=path.split("/");
+    var clean=[];
+    for(var i=0;i<segs.length;i++){
+      var s=segs[i].trim();
+      if(s)clean.push(s);
+    }
+    if(clean.length===0)return;
+    var parent=null;
+    var last=null;
+    for(var j=0;j<clean.length;j++){
+      var q=SDB.from("pages").select("id").eq("title",clean[j]);
+      if(parent){q=q.eq("parent_id",parent);}else{q=q.is("parent_id",null);}
+      var r=await q.maybeSingle();
+      if(!r.data){
+        var ins=await SDB.from("pages").insert({user_id:ME.id,title:clean[j],parent_id:parent}).select("id").single();
+        if(ins.error){toast("建頁失敗："+ins.error.message);return}
+        r.data=ins.data;
+      }
+      parent=r.data.id;
+      last=r.data.id;
+    }
+    toast("已建立 ✓");
+    location.hash="#/page/"+last;
+  }
+
+  /* ---- 今日日記 ---- */
+  async function openJournal(){
+    var t=journalTitle();
+    var r=await SDB.from("pages").select("id").eq("title",t).eq("is_journal",true).maybeSingle();
+    var id=r.data?r.data.id:null;
+    if(!id){
+      var ins=await SDB.from("pages").insert({user_id:ME.id,title:t,is_journal:true,source:"journal"}).select("id").single();
+      if(ins.error){toast(ins.error.message);return}
+      id=ins.data.id;
+    }
+    location.hash="#/page/"+id;
+  }
+
+  /* ---- 頁面視圖 ---- */
+  async function viewPage(id){
+    if(!el("wrap"))buildShell();
+    sidebarClose();
+    el("main").innerHTML='<div class="pad"><div class="empty">載入中…</div></div>';
+    var pr=await SDB.from("pages").select("*").eq("id",id).maybeSingle();
+    if(!pr.data){
+      el("main").innerHTML='<div class="pad"><div class="card empty">搵唔到呢個頁面<br><a href="#/" style="color:#8b5cf6">← 返回首頁</a></div></div>';
+      return;
+    }
+    var p=pr.data;
+    var trail=[];
+    var cur=p;
+    while(cur.parent_id&&trail.length<6){
+      var par=await SDB.from("pages").select("id,title,parent_id").eq("id",cur.parent_id).maybeSingle();
+      if(!par.data)break;
+      trail.unshift(par.data);
+      cur=par.data;
+    }
+    var bl=await SDB.from("blocks").select("id,content").eq("page_id",id).order("order_num");
+    var ch=await SDB.from("pages").select("id,title").eq("parent_id",id);
+    var fv=await SDB.from("favorites").select("page_id").eq("page_id",id).maybeSingle();
+    var faved=fv.data?true:false;
+    var html="";
+    html+='<div class="pad">';
+    if(trail.length>0){
+      html+='<div style="font-size:11px;color:#aaa;margin-bottom:2px">';
+      for(var t=0;t<trail.length;t++){
+        html+='<a href="#/page/'+trail[t].id+'" style="color:#aaa;text-decoration:none">'+esc(trail[t].title)+"</a> / ";
+      }
+      html+='</div>';
+    }
+    html+='<div style="display:flex;align-items:center;gap:10px">';
+    html+='<h1 style="font-size:22px">'+(p.icon||"📄")+" "+esc(p.title)+'</h1>';
+    html+='<button class="star" id="pfav">'+(faved?"⭐":"☆")+'</button>';
+    html+='</div>';
+    html+='<div class="time" style="margin-top:2px">更新於 '+timeAgo(p.updated_at)+'</div>';
+    html+='<div class="card" style="margin-top:14px;padding:16px">';
+    var bd=bl.data||[];
+    if(bd.length===0){
+      html+='<div class="empty">空白頁面。Phase 2 開通編輯器。</div>';
+    }else{
+      for(var b=0;b<bd.length;b++){
+        html+='<div style="padding:3px 0">'+esc(bd[b].content)+'</div>';
+      }
+    }
+    html+='</div>';
+    if(ch.data&&ch.data.length>0){
+      html+='<h2 class="sec" style="margin-top:14px">子頁面</h2>';
+      for(var c=0;c<ch.data.length;c++){
+        html+='<a class="chip" href="#/page/'+ch.data[c].id+'">📄 '+esc(ch.data[c].title)+'</a>';
+      }
+    }
+    html+='</div>';
+    el("main").innerHTML=html;
+    el("pfav").onclick=function(){toggleFav(id)};
+  }
+}
+</script>
+</body>
+  </html>
+  

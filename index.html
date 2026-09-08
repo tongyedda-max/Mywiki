@@ -348,6 +348,7 @@ function start(){
   function quickCreate(){
     viewNewEditor();
   }
+  
   /* ---- 新建頁面編輯器 ---- */
   function viewNewEditor(){
     var html="";
@@ -392,24 +393,7 @@ function start(){
     location.hash="#/page/"+pageId;
   }
 
-    if(clean.length===0)return;
-    var parent=null;
-    var last=null;
-    for(var j=0;j<clean.length;j++){
-      var q=SDB.from("pages").select("id").eq("title",clean[j]);
-      if(parent){q=q.eq("parent_id",parent);}else{q=q.is("parent_id",null);}
-      var r=await q.maybeSingle();
-      if(!r.data){
-        var ins=await SDB.from("pages").insert({user_id:ME.id,title:clean[j],parent_id:parent}).select("id").single();
-        if(ins.error){toast("建頁失敗："+ins.error.message);return}
-        r.data=ins.data;
-      }
-      parent=r.data.id;
-      last=r.data.id;
-    }
-    toast("已建立 ✓");
-    location.hash="#/page/"+last;
-  }
+    
 
   /* ---- 今日日記 ---- */
   async function openJournal(){

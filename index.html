@@ -146,18 +146,7 @@ function start(){
     route();
   }
 
-  async function submitAuth(){
-    el("amsg").textContent="";
-    var em=el("em").value.trim();
-    var pw=el("pw").value;
-    var r=await SDB.auth.signInWithPassword({email:em,password:pw});
-    if(r.error){
-      el("amsg").textContent=r.error.message;
-      return;
-    }
-    ME=r.data.user;
-    route();
-  }
+  
   async function logout(){
     await SDB.auth.signOut();
     ME=null;

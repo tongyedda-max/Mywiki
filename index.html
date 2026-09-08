@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wiki</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Markdown 引擎 -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f7f4;color:#222;font-size:15px}
+#err{position:fixed;top:0;left:0;right:0;background:#b00;color:#fff;font-size:12px;padding:6px 10px;z-index:9999;display:none;white-space:pre-wrap}
+button{font-family:inherit;cursor:pointer;border:none;background:none;font-size:14px;color:#inherit}
+input{font-family:inherit;font-size:16px;border:1px solid #ccc;border-radius:10px;padding:10px 12px;width:100%;background:#fff;outline:none}
+input:focus{border-color:#8b5cf6}
+.btn{background:#8b5cf6;color:#fff;font-weight:bold;border-radius:10px;padding:11px 16px}
+.card{background:#fff;border:1px solid #e5e3de;border-radius:14px}
+hr{border:none;border-top:1px solid #e5e3de;margin:6px 0}
+#burger{position:fixed;top:10px;left:10px;z-index:60;width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid #e5e3de;font-size:17px}
+#mask{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:55;display:none}
+#sb{position:fixed;top:0;left:0;bottom:0;width:232px;background:#f2f0eb;border-right:1px solid #e5e3de;z-index:70;display:none;flex-direction:column}
+#sb.open{display:flex}
+#sbBody{flex:1;overflow-y:auto;padding:10px 8px}
+.sbi{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 9px;border-radius:9px;font-size:14px}
+.sbLabel{padding:8px 9px 2px;font-size:11px;font-weight:bold;color:#9a958c}
+#logout{margin:8px;padding:8px;border-radius:9px;color:#777;font-size:12px;text-align:left}
+#logo{padding:6px 9px 10px;font-weight:bold;font-size:15px}
+#wrap{display:flex;min-height:100vh}
+#main{flex:1;min-width:0}
+.pad{max-width:720px;margin:0 auto;padding:60px 16px 70px}
+.searchrow{display:flex;gap:8px;margin-bottom:18px}
+.chip{display:inline-block;background:#fff;border:1px solid #e5e3de;border-radius:999px;padding:6px 12px;font-size:13px;margin:0 6px 6px 0;text-decoration:none;color:#222}
+.rowitem{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid #f0eeea}
+.rowitem a{flex:1;min-width:0;text-decoration:none;color:#6d28d9;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.time{font-size:11px;color:#aaa;white-space:nowrap}
+.star{font-size:16px;width:26px}
+h2.sec{font-size:12px;font-weight:bold;color:#9a958c;margin:0 0 8px}
+.empty{padding:22px;text-align:center;color:#b5b0a7;font-size:13px}
+/* Markdown 樣式 */
+.md-body h1{font-size:1.5em;margin:0.5em 0;border-bottom:1px solid #eee;padding-bottom:0.3em}
+.md-body h2{font-size:1.3em;margin:0.5em 0}
+.md-body p{margin:0.5em 0;line-height:1.6}
+.md-body code{background:#eee;padding:2px 4px;border-radius:4px;font-family:monospace}
+.md-body blockquote{border-left:3px solid #ddd;margin:0;padding-left:10px;color:#666}
+.md-link{color:#8b5cf6;background:#f3f0ff;padding:0 4px;border-radius:4px;text-decoration:none;font-weight:500}
+/* 反向連結樣式 */
+.backlink-item{padding:8px 0;border-bottom:1px solid #eee}
+.backlink-item:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+<div id="err"></div>
+<div id="app"></div>
+<script>
+window.onerror=function(m){var e=document.getElementById("err");e.style.display="block";e.textContent="⚠️ "+m;return false};
+</script>
+<script>
+var SUPA_URL="https://xlplarozmcjcqgvfsyaj.supabase.co";
+var SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhscGxhcm96bWNqY3FndmZzeWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTk0MzAsImV4cCI6MjEwNDQzNTQzMH0.ObTyjGPjlZbCjrMVQzllCmFIKYaDRnVL-3CXXgY21mQ";
+</script>
+<script>
+/* ═══ 換上面兩行 var SUPA_URL 同 var SUPA_KEY ═══ */
+
+if(SUPA_URL===""){
+  document.getElementById("app").innerHTML='<h2 style="padding:40px">未設定 SUPA_URL / SUPA_KEY</h2>';
+}else{
+  start();
+}
+
+function start(){
+  var SDB=supabase.createClient(SUPA_URL,SUPA_KEY);
+  var ME=null;
+  var FAVS={};
+  var RECENT=[];
+  var MODE="login";
+
+  window.addEventListener("hashchange",route);
+  SDB.auth.getSession().then(function(res){
+    ME=res.data.session ? res.data.session.user : null;
+    route();
+  });
+  SDB.auth.onAuthStateChange(function(ev,session){
+    ME=session ? session.user : null;
+    route();
+  });
+
+  function el(id){return document.getElementById(id)}
+  function esc(s){
+    s=String(s==null?"":s);
+    s=s.split("&").join("&amp;");
+    s=s.split("<").join("&lt;");
+    s=s.split(">").join("&gt;");
+    return s;
+  }
+  function toast(msg){
+    var t=document.createElement("div");
+    t.textContent=msg;
+    t.style.cssText="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#333;color:#fff;font-size:13px;padding:9px 16px;border-radius:999px;z-index:9999";
+    document.body.appendChild(t);
+    setTimeout(function(){t.remove()},2200);
+  }
+  function timeAgo(iso){
+    var s=(Date.now()-new Date(iso).getTime())/1000;
+    if(s<60)return"剛剛";
+    if(s<3600)return Math.floor(s/60)+"分鐘前";
+    if(s<86400)return Math.floor(s/3600)+"小時前";
+    return new Date(iso).toLocaleDateString("zh-HK");
+  }
+  function journalTitle(){
+    var M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var d=new Date();
+    var day=d.getDate();
+    var suf="th";
+    if(day==1||(day>20&&day%10==1))suf="st";
+    else if(day==2||(day>20&&day%10==2))suf="nd";
+    else if(day==3||(day>20&&day%10==3))suf="rd";
+    return M[d.getMonth()]+" "+day+suf+", "+d.getFullYear();
+  }
+
+  function route(){
+    if(!ME){viewAuth();return}
+    var h=location.hash||"#/";
+    var m=h.match(/^#\/page\/([0-9a-f-]{10,})/i);
+    var me=h.match(/^#\/edit\/?([0-9a-f-]{10,})?$/i);
+    if(m){viewPage(m[1]);}
+    else if(me){viewEditor(me[1]||null);}
+    else if(h.startsWith("#/search/")){
+      viewHome();
+      setTimeout(function(){
+        if(el("q")){el("q").value=decodeURIComponent(h.split("/")[2]);el("q").dispatchEvent(new Event("input"));}
+      },50);
+    }
+    else{viewHome();}
+  }
+
+  /* ---- 登入 ---- */
+  function viewAuth(){
+    var html="";
+    html+='<div style="min-height:100vh;display:grid;place-items:center;padding:20px">';
+    html+='<div class="card" style="padding:22px;max-width:360px;width:100%">';
+    html+='<h1 style="font-size:20px">📚 知識維基</h1>';
+    html+='<p style="color:#999;font-size:13px;margin:4px 0 14px">使用 Email 登入</p>';
+    html+='<input id="em" placeholder="Email" style="margin-bottom:8px">';
+    html+='<input id="pw" type="password" placeholder="密碼（至少6位）">';
+    html+='<p id="amsg" style="color:#c22;font-size:12px;margin:8px 0 0"></p>';
+    html+='<button class="btn" style="width:100%;margin:10px 0" id="btnGo">進入</button>';
+    html+='</div></div>';
+    el("app").innerHTML=html;
+    el("btnGo").onclick=submitAuth;
+    el("pw").addEventListener("keydown",function(e){if(e.key==="Enter")submitAuth();});
+  }
+  async function submitAuth(){
+    el("amsg").textContent="";
+    var em=el("em").value.trim();
+    var pw=el("pw").value;
+    var r=await SDB.auth.signInWithPassword({email:em,password:pw});
+    if(r.error){
+      el("amsg").textContent=r.error.message;
+      return;
+    }
+    ME=r.data.user;
+    route();
+  }
+  async function logout(){
+    await SDB.auth.signOut();
+    ME=null;
+    route();
+  }
+
+  /* ---- 外殼 ---- */
+  function buildShell(){
+    var html="";
+    html+='<div id="wrap">';
+    html+='<button id="burger">☰</button>';
+    html+='<div id="mask"></div>';
+    html+='<aside id="sb">';
+    html+='<div id="sbBody">';
+    html+='<div id="logo">📚 知識維基</div>';
+    html+='<button class="sbi" data-act="home">🔍 搜索</button>';
+    html+='<button class="sbi" data-act="newpage">＋ 新增頁面</button>';
+    html+='<hr>';
+    html+='<button class="sbi" data-act="journal">🗓 今日日記</button>';
+    html+='<button class="sbi" data-act="graph">🌌 知識圖譜</button>';
+    html+='<button class="sbi" data-act="allpages">📚 所有頁面</button>';
+    html+='<hr>';
+    html+='<div class="sbLabel">⭐ 收藏</div>';
+    html+='<div id="sbFavs"></div>';
+    html+='<hr>';
+    html+='<button class="sbi" data-act="console">⚙️ 控制台</button>';
+    html+='</div>';
+    html+='<button id="logout">⎋ 登出</button>';
+    html+='</aside>';
+    html+='<main id="main"></main>';
+    html+='</div>';
+    el("app").innerHTML=html;
+    el("burger").onclick=sidebarOpen;
+    el("mask").onclick=sidebarClose;
+    el("logout").onclick=logout;
+    var btns=document.querySelectorAll(".sbi");
+    for(var i=0;i<btns.length;i++){
+      btns[i].onclick=onSideBtn;
+    }
+    renderSbFavs();
+  }
+  function sidebarOpen(){el("sb").style.display="flex";el("mask").style.display="block"}
+  function sidebarClose(){el("sb").style.display="none";el("mask").style.display="none"}
+  function onSideBtn(){
+    var act=this.getAttribute("data-act");
+    if(act==="home"||act==="allpages"){
+      sidebarClose();location.hash="#/";viewHome();
+    }else if(act==="newpage"){
+      sidebarClose();location.hash="#/edit";
+    }else if(act==="journal"){
+      sidebarClose();openJournal();
+    }else if(act==="graph"){
+      sidebarClose();viewGraph();
+    }else if(act==="console"){
+      sidebarClose();viewConsole();
+    }
+  }
+
+  async function renderSbFavs(){
+    var box=el("sbFavs");
+    if(!box)return;
+    var r=await SDB.from("favorites").select("pages(id,title,icon)").order("created_at");
+    var rows=[];
+    var data=r.data||[];
+    for(var i=0;i<data.length;i++){
+      var p=data[i].pages;
+      if(p)rows.push(p);
+    }
+    if(rows.length===0){
+      box.innerHTML='<div class="sbLabel" style="color:#c9c4bb">喺頁面撳☆收藏</div>';
+      return;
+    }
+    var html="";
+    for(var j=0;j<rows.length;j++){
+      html+='<button class="sbi" data-goto="'+rows[j].id+'">'+(rows[j].icon||"📄")+" "+esc(rows[j].title)+'</button>';
+    }
+    box.innerHTML=html;
+    var btns=box.querySelectorAll("button");
+    for(var k=0;k<btns.length;k++){
+      btns[k].onclick=function(){
+        sidebarClose();
+        location.hash="#/page/"+this.getAttribute("data-goto");
+      };
+    }
+  }
+
+  /* ---- 首頁 ---- */
+  async function viewHome(){
+    if(!el("wrap"))buildShell();
+    sidebarClose();
+    var html="";
+    html+='<div class="pad">';
+    html+='<div class="searchrow">';
+    html+='<input id="q" placeholder="搜尋…／輸入新頁名（支持 音樂/莫扎特）">';
+    html+='<button class="btn" id="btnNew">＋ 新增</button>';
+    html+='</div>';
+    html+='<div id="favBox" style="margin-bottom:16px"></div>';
+    html+='<h2 class="sec">⏱ 最近修改</h2>';
+    html+='<div class="card" id="recentBox"><div class="empty">載入中…</div></div>';
+    html+='</div>';
+    el("main").innerHTML=html;
+    el("btnNew").onclick=function(){location.hash="#/edit";};
+    el("q").addEventListener("keydown",function(e){if(e.key==="Enter")quickCreate();});
+    el("q").addEventListener("input",filterRecent);
+    await loadHome();
+  }
+  async function loadHome(){
+    var a=await SDB.from("pages").select("id,title,icon,source,is_journal,updated_at").order("updated_at",{ascending:false}).limit(50);
+    RECENT=a.data||[];
+    var b=await SDB.from("favorites").select("page_id");
+    FAVS={};
+    var fb=b.data||[];
+    for(var i=0;i<fb.length;i++){FAVS[fb[i].page_id]=1;}
+    drawFavChips();
+    drawRecent();
+  }
+  function drawFavChips(){
+    var box=el("favBox");
+    if(!box)return;
+    var favs=[];
+    for(var i=0;i<RECENT.length;i++){
+      if(FAVS[RECENT[i].id])favs.push(RECENT[i]);
+    }
+    if(favs.length===0){box.innerHTML="";return}
+    var html='<h2 class="sec">⭐ 收藏</h2>';
+    for(var j=0;j<favs.length;j++){
+      html+='<a class="chip" href="#/page/'+favs[j].id+'">'+(favs[j].icon||"📄")+" "+esc(favs[j].title)+'</a>';
+    }
+    box.innerHTML=html;
+  }
+  function drawRecent(){
+    var box=el("recentBox");
+    if(!box)return;
+    if(RECENT.length===0){
+      box.innerHTML='<div class="empty">仲未有頁面——喺上面打個名撳 Enter 就建到 ✨</div>';
+      return;
+    }
+    var html="";
+    for(var i=0;i<RECENT.length;i++){
+      var p=RECENT[i];
+      html+='<div class="rowitem">';
+      html+='<button class="star" data-fav="'+p.id+'">'+(FAVS[p.id]?"⭐":"☆")+'</button>';
+      html+='<a href="#/page/'+p.id+'">'+(p.icon||"📄")+" "+esc(p.title)+'</a>';
+      html+='<span class="time">'+timeAgo(p.updated_at)+'</span>';
+      html+='</div>';
+    }
+    box.innerHTML=html;
+    var stars=box.querySelectorAll(".star");
+    for(var k=0;k<stars.length;k++){
+      stars[k].onclick=function(){toggleFav(this.getAttribute("data-fav"))};
+    }
+  }
+  function filterRecent(){
+    var q=el("q").value.trim().toLowerCase();
+    var list=[];
+    for(var i=0;i<RECENT.length;i++){
+      if(RECENT[i].title.toLowerCase().indexOf(q)>=0)list.push(RECENT[i]);
+    }
+    var box=el("recentBox");
+    if(!box)return;
+    var html="";
+    for(var j=0;j<list.length;j++){
+      var p=list[j];
+      html+='<div class="rowitem">';
+      html+='<button class="star" data-fav="'+p.id+'">'+(FAVS[p.id]?"⭐":"☆")+'</button>';
+      html+='<a href="#/page/'+p.id+'">'+(p.icon||"📄")+" "+esc(p.title)+'</a>';
+      html+='<span class="time">'+timeAgo(p.updated_at)+'</span>';
+      html+='</div>';
+    }
+    box.innerHTML=html;
+    var stars=box.querySelectorAll(".star");
+    for(var k=0;k<stars.length;k++){
+      stars[k].onclick=function(){toggleFav(this.getAttribute("data-fav"))};
+    }
+  }
+  async function toggleFav(id){
+    if(FAVS[id]){
+      var d=await SDB.from("favorites").delete().eq("page_id",id);
+      if(d.error){toast(d.error.message);return}
+      FAVS[id]=0;
+    }else{
+      var i=await SDB.from("favorites").insert({user_id:ME.id,page_id:id});
+      if(i.error){toast("收藏失敗："+i.error.message);return}
+      FAVS[id]=1;
+    }
+    renderSbFavs();
+    if(el("recentBox"))drawRecent();
+    if(el("favBox"))drawFavChips();
+  }
+  async function quickCreate(){
+    var path=el("q").value.trim();
+    if(!path)return;
+    var segs=path.split("/");
+    var clean=[];
+    for(var i=0;i<segs.length;i++){
+      var s=segs[i].trim();
+      if(s)clean.push(s);
+    }
+    if(clean.length===0)return;
+    var parent=null;
+    var last=null;
+    for(var j=0;j<clean.length;j++){
+      var q=SDB.from("pages").select("id").eq("title",clean[j]);
+      if(parent){q=q.eq("parent_id",parent);}else{q=q.is("parent_id",null);}
+      var r=await q.maybeSingle();
+      if(!r.data){
+        var ins=await SDB.from("pages").insert({user_id:ME.id,title:clean[j],parent_id:parent}).select("id").single();
+        if(ins.error){toast("建頁失敗："+ins.error.message);return}
+        r.data=ins.data;
+      }
+      parent=r.data.id;
+      last=r.data.id;
+    }
+    toast("已建立 ✓");
+    location.hash="#/page/"+last;
+  }
+  async function openJournal(){
+    var t=journalTitle();
+    var r=await SDB.from("pages").select("id").eq("title",t).eq("is_journal",true).maybeSingle();
+    var id=r.data?r.data.id:null;
+    if(!id){
+      var ins=await SDB.from("pages").insert({user_id:ME.id,title:t,is_journal:true,source:"journal"}).select("id").single();
+      if(ins.error){toast(ins.error.message);return}
+      id=ins.data.id;
+    }
+    location.hash="#/page/"+id;
+  }
+
+  /* ---- 編輯器 ---- */
+  async function viewEditor(id){
+    if(!el("wrap"))buildShell();
+    sidebarClose();
+    var isEdit=!!id;
+    var title="無標題";
+    var content="";
+    if(isEdit){
+      var pr=await SDB.from("pages").select("title").eq("id",id).maybeSingle();
+      if(pr.data)title=pr.data.title;
+      var bl=await SDB.from("blocks").select("content").eq("page_id",id).order("order_num");
+      if(bl.data){
+        content=bl.data.map(function(x){return x.content;}).join("\n\n");
+      }
+    }
+    var html="";
+    html+='<div class="pad">';
+    html+='<div class="card" style="padding:16px">';
+    html+='<div style="font-size:13px;color:#aaa;margin-bottom:4px">'+(isEdit?"編輯頁面":"新增頁面")+'</div>';
+    html+='<input id="epTitle" value="'+esc(title)+'" placeholder="標題">';
+    html+='<textarea id="epContent" style="width:100%;min-height:50vh;margin-top:8px;padding:10px;border:1px solid #ccc;border-radius:8px;font-family:inherit;font-size:15px;resize:vertical;box-sizing:border-box" placeholder="支援 Markdown 與 [[連結]]"></textarea>';
+    html+='<div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">';
+    html+='<button id="epCancel" style="padding:8px 12px;border-radius:8px;border:1px solid #e5e3de;background:#fff;font-size:13px">取消</button>';
+    html+='<button id="epSave" class="btn" style="padding:8px 16px;font-size:13px">儲存</button>';
+    html+='</div>';
+    html+='</div></div>';
+    el("main").innerHTML=html;
+    el("epContent").value=content;
+    el("epSave").onclick=function(){savePage(id)};
+    el("epCancel").onclick=function(){
+      if(confirm("確定要放棄編輯？")){
+        if(isEdit){viewPage(id);}else{location.hash="#/";}
+      }
+    };
+    setTimeout(function(){el("epTitle").focus();},100);
+  }
+  async function savePage(id){
+    var isEdit=!!id;
+    var title=el("epTitle").value.trim()||"無標題";
+    var content=el("epContent").value.trim();
+    var pageId=id;
+    if(!isEdit){
+      var ins=await SDB.from("pages").insert({user_id:ME.id,title:title}).select("id").single();
+      if(ins.error){toast("儲存失敗："+ins.error.message);return;}
+      pageId=ins.data.id;
+    }else{
+      var up=await SDB.from("pages").update({title:title}).eq("id",pageId);
+      if(up.error){toast("更新失敗："+up.error.message);return;}
+    }
+    await SDB.from("blocks").delete().eq("page_id",pageId);
+    if(content){
+      var bi=await SDB.from("blocks").insert({page_id:pageId,content:content,order_num:0});
+      if(bi.error){toast("內容儲存失敗："+bi.error.message);return;}
+    }
+    toast("已儲存 ✓");
+    location.hash="#/page/"+pageId;
+  }
+
+  /* ---- 頁面視圖（含反向連結） ---- */
+  async function viewPage(id){
+    if(!el("wrap"))buildShell();
+    sidebarClose();
+    el("main").innerHTML='<div class="pad"><div class="empty">載入中…</div></div>';
+    var pr=await SDB.from("pages").select("*").eq("id",id).maybeSingle();
+    if(!pr.data){
+      el("main").innerHTML='<div class="pad"><div class="card empty">搵唔到呢個頁面<br><a href="#/" style="color:#8b5cf6">← 返回首頁</a></div></div>';
+      return;
+    }
+    var p=pr.data;
+    
+    // 麵包屑
+    var trail=[];
+    var cur=p;
+    while(cur.parent_id&&trail.length<6){
+      var par=await SDB.from("pages").select("id,title,parent_id").eq("id",cur.parent_id).maybeSingle();
+      if(!par.data)break;
+      trail.unshift(par.data);
+      cur=par.data;
+    }
+
+    // 內容
+    var bl=await SDB.from("blocks").select("id,content").eq("page_id",id).order("order_num");
+    
+    // 子頁面
+    var ch=await SDB.from("pages").select("id,title").eq("parent_id",id);
+
+    // 收藏狀態
+    var fv=await SDB.from("favorites").select("page_id").eq("page_id",id).maybeSingle();
+    var faved=fv.data?true:false;
+
+    var html="";
+    html+='<div class="pad">';
+    if(trail.length>0){
+      html+='<div style="font-size:11px;color:#aaa;margin-bottom:2px">';
+      for(var t=0;t<trail.length;t++){
+        html+='<a href="#/page/'+trail[t].id+'" style="color:#aaa;text-decoration:none">'+esc(trail[t].title)+"</a> / ";
+      }
+      html+='</div>';
+    }
+    html+='<div style="display:flex;align-items:center;gap:10px">';
+    html+='<h1 style="font-size:22px;margin:0">'+(p.icon||"📄")+" "+esc(p.title)+'</h1>';
+    html+='<button class="star" id="pfav">'+(faved?"⭐":"☆")+'</button>';
+    html+='</div>';
+    html+='<div class="time" style="margin-top:2px">更新於 '+timeAgo(p.updated_at)+'</div>';
+    
+    // 主要內容卡片
+    html+='<div class="card" style="margin-top:14px;padding:16px">';
+    var bd=bl.data||[];
+    if(bd.length===0){
+      html+='<div class="empty">空白頁面。<a href="#/edit/'+id+'" style="color:#8b5cf6">開始編輯</a></div>';
+    }else{
+      var mdText=bd.map(function(x){return x.content;}).join("\n\n");
+      // 處理 WikiLink [[...]]
+      var linked=mdText.replace(/\[\[(.*?)\]\]/g,function(m,t){
+        return '<a href="#/search/'+encodeURIComponent(t)+'" class="md-link">[['+esc(t)+']]</a>';
+      });
+      html+='<div class="md-body">'+marked.parse(linked)+'</div>';
+    }
+    html+='</div>';
+
+    // 編輯按鈕
+    html+='<div style="margin-top:10px;text-align:right">';
+    html+='<button onclick="location.hash=\'#/edit/'+id+'\'" style="font-size:13px;color:#8b5cf6;padding:6px 10px;border:1px solid #e5e3de;border-radius:8px;background:#fff">✏️ 編輯</button>';
+    html+='</div>';
+
+    // 子頁面
+    if(ch.data&&ch.data.length>0){
+      html+='<h2 class="sec" style="margin-top:20px">子頁面</h2>';
+      for(var c=0;c<ch.data.length;c++){
+        html+='<a class="chip" href="#/page/'+ch.data[c].id+'">📄 '+esc(ch.data[c].title)+'</a>';
+      }
+    }
+
+    // 🆕 反向連結
+    var bkRes=await SDB.from("blocks").select("content, page_id, pages(id,title)").ilike("content", "%[["+p.title+"]]%");
+    var backlinks=bkRes.data||[];
+    // 過濾掉自己連結自己的情況
+    backlinks=backlinks.filter(function(b){return b.page_id!==id;});
+
+    if(backlinks.length>0){
+      html+='<h2 class="sec" style="margin-top:24px">🔗 反向連結 ('+backlinks.length+')</h2>';
+      html+='<div class="card" style="padding:12px;background:#fcfcfc">';
+      for(var k=0;k<backlinks.length;k++){
+        var b=backlinks[k];
+        var src=b.pages;
+        if(!src)continue;
+        html+='<div class="backlink-item">';
+        html+='<a href="#/page/'+src.id+'" style="font-weight:bold;color:#8b5cf6;text-decoration:none;display:block;margin-bottom:2px">'+esc(src.title)+'</a>';
+        // 顯示上下文
+        html+='<div style="font-size:13px;color:#555;line-height:1.4">...'+esc(b.content)+'...</div>';
+        html+='</div>';
+      }
+      html+='</div>';
+    }
+
+    html+='</div>';
+    el("main").innerHTML=html;
+    el("pfav").onclick=function(){toggleFav(id)};
+  }
+
+  /* ---- 控制台 ---- */
+  async function viewConsole(){
+    if(!el("wrap"))buildShell();
+    sidebarClose();
+    el("main").innerHTML='<div class="pad"><div class="card empty" style="padding:30px">載入中…</div></div>';
+    var res=await SDB.from("pages").select("id,title,updated_at").order("updated_at",{ascending:false}).limit(200);
+    var pages=res.data||[];
+    var html="";
+    html+='<div class="pad">';
+    html+='<div style="margin-bottom:10px;font-size:15px;font-weight:bold">⚙️ 控制台：頁面管理</div>';
+    html+='<div class="card">';
+    for(var i=0;i<pages.length;i++){
+      var p=pages[i];
+      html+='<div class="rowitem">';
+      html+='<a href="#/page/'+p.id+'" style="color:#6d28d9;text-decoration:none;flex:1">'+esc(p.title)+'</a>';
+      html+='<span class="time">'+timeAgo(p.updated_at)+'</span>';
+      html+='<button style="margin-left:8px;color:#c22;font-size:12px;padding:4px 8px;border:1px solid #fee2e2;background:#fff;border-radius:6px" data-del="'+p.id+'">刪除</button>';
+      html+='</div>';
+    }
+    html+='</div>';
+    html+='</div>';
+    el("main").innerHTML=html;
+    var delBtns=el("main").querySelectorAll("button[data-del]");
+    for(var j=0;j<delBtns.length;j++){
+      delBtns[j].onclick=function(){
+        var idToDelete=this.getAttribute("data-del");
+        if(confirm("確定要刪除這個頁面嗎？此動作無法復原。")){
+          deletePage(idToDelete);
+        }
+      };
+    }
+  }
+  async function deletePage(id){
+    var d1=await SDB.from("blocks").delete().eq("page_id",id);
+    var d2=await SDB.from("pages").delete().eq("id",id);
+    if(d1.error || d2.error){
+      toast("刪除失敗："+(d1.error||d2.error).message);
+      return;
+    }
+    toast("已刪除 ✓");
+    viewConsole();
+  }
+
+  /* ---- 知識圖譜 ---- */
+  async function viewGraph(){
+    if(!el("wrap"))buildShell();
+    sidebarClose();
+    el("main").innerHTML='<div class="pad"><div class="card" style="padding:30px;text-align:center;color:#aaa">載入圖譜…</div></div>';
+    var res=await SDB.from("pages").select("id,title,parent_id").limit(200);
+    var nodes=res.data||[];
+    var html="";
+    html+='<div class="pad">';
+    html+='<div style="margin-bottom:8px;font-size:13px;color:#aaa">頁面節點：'+nodes.length+'</div>';
+    html+='<div class="card" style="padding:12px;max-height:60vh;overflow-y:auto;font-size:13px">';
+    for(var i=0;i<nodes.length;i++){
+      var p=nodes[i];
+      html+='<div style="padding:4px 0;border-bottom:1px solid #f0eeea;display:flex;justify-content:space-between">';
+      html+='<span><a href="#/page/'+p.id+'" style="color:#6d28d9;text-decoration:none">'+esc(p.title)+'</a></span>';
+      html+='<span style="color:#ccc;font-size:11px">id:'+p.id.slice(0,6)+'</span>';
+      html+='</div>';
+    }
+    html+='</div>';
+    html+='</div>';
+    el("main").innerHTML=html;
+  }
+}
+</script>
+</body>
+</html>

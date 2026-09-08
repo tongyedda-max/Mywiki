@@ -344,16 +344,54 @@ function start(){
     if(el("favBox"))drawFavChips();
   }
 
-  /* ---- 智能建頁 ---- */
-  async function quickCreate(){
-    var path=el("q").value.trim();
-    if(!path)return;
-    var segs=path.split("/");
-    var clean=[];
-    for(var i=0;i<segs.length;i++){
-      var s=segs[i].trim();
-      if(s)clean.push(s);
+    /* ---- 智能建頁（改為開啟編輯器） ---- */
+  function quickCreate(){
+    viewNewEditor();
+  }
+  /* ---- 新建頁面編輯器 ---- */
+  function viewNewEditor(){
+    var html="";
+    html+='<div class="pad">';
+    html+='<div class="card" style="padding:20px">';
+    html+='<h3 style="margin-bottom:12px">✏️ 建立新頁面</h3>';
+    html+='<input id="npTitle" placeholder="頁面標題（例如：我的想法）" value="無標題">';
+    html+='<textarea id="npContent" placeholder="內容...（Phase 2 會支持 Markdown）" style="width:100%;height:180px;margin-top:12px;padding:10px;border:1px solid #ccc;border-radius:8px;font-family:inherit;font-size:15px;resize:vertical;"></textarea>';
+    html+='<div style="margin-top:14px;display:flex;gap:10px">';
+    html+='<button class="btn" id="npSave" style="flex:1">✨ 保存並發佈</button>';
+    html+='<button id="npCancel" style="flex:1;background:#f0eeea;border-radius:10px">取消</button>';
+    html+='</div>';
+    html+='</div></div>';
+    el("main").innerHTML=html;
+    
+    el("npSave").onclick=saveNewPage;
+    el("npCancel").onclick=function(){
+      if(confirm("確定要放棄編輯嗎？內容將會丟失。")){
+        location.hash="#/";
+      }
+    };
+    setTimeout(function(){el("npTitle").focus();el("npTitle").select();},100);
+  }
+
+  async function saveNewPage(){
+    var title=el("npTitle").value.trim() || "無標題";
+    var content=el("npContent").value.trim();
+    
+    // 1. 建立 Page 記錄
+    var p=await SDB.from("pages").insert({user_id:ME.id,title:title}).select("id").single();
+    if(p.error){toast("保存失敗："+p.error.message);return}
+    var pageId=p.data.id;
+
+    // 2. 如果有內容，建立 Block 記錄
+    if(content){
+      var b=await SDB.from("blocks").insert({page_id:pageId,content:content,order_num:0});
+      if(b.error){toast("內容保存失敗："+b.error.message);return}
     }
+
+    toast("已發佈 ✓");
+    // 3. 跳轉去新頁面
+    location.hash="#/page/"+pageId;
+  }
+
     if(clean.length===0)return;
     var parent=null;
     var last=null;

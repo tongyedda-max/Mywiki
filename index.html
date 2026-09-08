@@ -46,6 +46,8 @@ window.onerror=function(m){var e=document.getElementById("err");e.style.display=
 <script>
 var SUPA_URL="https://xlplarozmcjcqgvfsyaj.supabase.co";
 var SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhscGxhcm96bWNqY3FndmZzeWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTk0MzAsImV4cCI6MjEwNDQzNTQzMH0.ObTyjGPjlZbCjrMVQzllCmFIKYaDRnVL-3CXXgY21mQ";
+var OWNER_EMAIL="yantung@mywiki.local";
+  
 </script>
 <script>
 /* ═══ 換上面兩行 var SUPA_URL 同 var SUPA_KEY ═══ */
@@ -114,21 +116,34 @@ function start(){
   }
 
   /* ---- 登入 ---- */
+    /* ---- 密碼門鎖 ---- */
   function viewAuth(){
     var html="";
     html+='<div style="min-height:100vh;display:grid;place-items:center;padding:20px">';
     html+='<div class="card" style="padding:22px;max-width:360px;width:100%">';
     html+='<h1 style="font-size:20px">📚 知識維基</h1>';
-    html+='<p style="color:#999;font-size:13px;margin:4px 0 14px">使用 Email 登入</p>';
-    html+='<input id="em" placeholder="Email" style="margin-bottom:8px">';
-    html+='<input id="pw" type="password" placeholder="密碼（至少6位）">';
+    html+='<p style="color:#999;font-size:13px;margin:4px 0 14px">輸入密碼進入</p>';
+    html+='<input id="pw" type="password" placeholder="密碼">';
     html+='<p id="amsg" style="color:#c22;font-size:12px;margin:8px 0 0"></p>';
     html+='<button class="btn" style="width:100%;margin:10px 0" id="btnGo">進入</button>';
     html+='</div></div>';
     el("app").innerHTML=html;
     el("btnGo").onclick=submitAuth;
     el("pw").addEventListener("keydown",function(e){if(e.key==="Enter")submitAuth();});
+    setTimeout(function(){el("pw").focus();},100);
   }
+  async function submitAuth(){
+    el("amsg").textContent="";
+    var pw=el("pw").value;
+    var r=await SDB.auth.signInWithPassword({email:OWNER_EMAIL,password:pw});
+    if(r.error){
+      el("amsg").textContent="密碼不正確";
+      return;
+    }
+    ME=r.data.user;
+    route();
+  }
+
   async function submitAuth(){
     el("amsg").textContent="";
     var em=el("em").value.trim();

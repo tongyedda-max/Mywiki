@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>📚 知識維基</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f8f7f4;color:#222;font-size:15px}
+#err{position:fixed;top:0;left:0;right:0;background:#b00;color:#fff;font-size:12px;padding:6px 10px;z-index:9999;display:none;white-space:pre-wrap}
+button{font-family:inherit;cursor:pointer;border:none;background:none;font-size:14px;color:inherit}
+input{font-family:inherit;font-size:16px;border:1px solid #ccc;border-radius:10px;padding:10px 12px;width:100%;background:#fff;outline:none}
+input:focus{border-color:#8b5cf6}
+.btn{background:#8b5cf6;color:#fff;font-weight:bold;border-radius:10px;padding:11px 16px}
+.btn:active{opacity:.8}
+.card{background:#fff;border:1px solid #e5e3de;border-radius:14px;overflow:hidden}
+hr{border:none;border-top:1px solid #e5e3de;margin:6px 0}
+#burger{position:fixed;top:10px;left:10px;z-index:60;width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid #e5e3de;font-size:17px;display:flex;align-items:center;justify-content:center}
+#mask{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:55;display:none}
+#sb{position:fixed;top:0;left:0;bottom:0;width:232px;background:#f2f0eb;border-right:1px solid #e5e3de;z-index:70;display:flex;flex-direction:column;transform:translateX(-105%);transition:transform .2s}
+#sb.open{transform:none}
+#sbBody{flex:1;overflow-y:auto;padding:10px 8px}
+.sbi{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 9px;border-radius:9px;font-size:14px}
+.sbi:active{background:#e4e1da}
+.sbLabel{padding:8px 9px 2px;font-size:11px;font-weight:bold;color:#9a958c}
+#logout{margin:8px;padding:8px;border-radius:9px;color:#777;font-size:12px;text-align:left}
+#logo{display:flex;align-items:center;gap:8px;padding:6px 9px 10px;font-weight:bold;font-size:15px}
+#collapse{display:none;margin-left:auto;font-size:15px}
+@media(min-width:900px){
+ #burger{display:none}
+ #sb{position:static;transform:none;flex:none;height:100vh}
+ #sb.mini{width:56px}
+ #sb.mini .t,#sb.mini .sbLabel,#sb.mini #logoTxt{display:none}
+ #sb.mini .sbi{justify-content:center;padding:8px 0}
+ #collapse{display:block}
+}
+#wrap{display:flex;min-height:100vh}
+#main{flex:1;min-width:0}
+.pad{max-width:720px;margin:0 auto;padding:60px 16px 70px}
+@media(min-width:900px){.pad{padding:22px 16px 70px}}
+.searchrow{display:flex;gap:8px;margin-bottom:18px}
+.chip{display:inline-flex;align-items:center;background:#fff;border:1px solid #e5e3de;border-radius:999px;padding:6px 12px;font-size:13px;margin:0 6px 6px 0;text-decoration:none;color:#222}
+.rowitem{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid #f0eeea}
+.rowitem:first-child{border-top:none}
+.rowitem a{flex:1;min-width:0;text-decoration:none;color:#6d28d9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{font-size:10px;background:#ffedd5;color:#c2410c;border-radius:5px;padding:2px 5px;flex:none}
+.time{font-size:11px;color:#aaa;white-space:nowrap;flex:none}
+.star{font-size:16px;flex:none;width:26px}
+h2.sec{font-size:12px;font-weight:bold;color:#9a958c;margin:0 0 8px}
+.empty{padding:22px;text-align:center;color:#b5b0a7;font-size:13px}
+.bc{font-size:11px;color:#aaa;margin-bottom:2px}
+.bc a{color:#aaa;text-decoration:none}
+h1.pt{font-size:22px}
+</style>
+</head>
+<body>
+<div id="err"></div>
+<div id="app"></div>
+<script>
+window.onerror=function(m){var e=document.getElementById("err");e.style.display="block";e.textContent="⚠️ "+m;return false};
+
+/* ══════════════════════════════════════════
+   ★★ 第一件事：換下面兩行做你嘅資料 ★★
+   Supabase → Settings → API 抄低嗰兩個值
+   ══════════════════════════════════════════ */
+const SUPABASE_URL="https://xlplarozmcjcqgvfsyaj.supabase.co";
+const SUPABASE_ANON_KEY="sb_publishable_BhwandLHsHtUKSLZDqckow_p_zdaURi";
+
+if(SUPABASE_URL.indexOf("貼上")>=0||SUPABASE_ANON_KEY.indexOf("貼上")>=0){
+ document.getElementById("app").innerHTML='<div style="max-width:420px;margin:60px auto;padding:0 16px;line-height:1.8;font-size:14px"><h2>⚙️ 仲差一步設定</h2><p>打開 index.html，搵到 <b>SUPABASE_URL</b> 同 <b>SUPABASE_ANON_KEY</b> 兩行，換成 Supabase → Settings → API 嗰兩個值，再 Commit 就得。</p></div>';
+ throw new Error("請先設定 Supabase URL / KEY");
+}
+
+const SDB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let ME=null,FAVS=new Set(),COLLAPSED=localStorage.getItem("sbcol")==="1",RECENT=[],AUTHMODE="login";
+
+const $=id=>document.getElementById(id);
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function toast(m){var t=document.createElement("div");t.textContent=m;t.style.cssText="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#333;color:#fff;font-size:13px;padding:9px 16px;border-radius:999px;z-index:9999";document.body.appendChild(t);setTimeout(function(){t.remove()},2200)}
+function timeAgo(iso){var s=(Date.now()-new Date(iso).getTime())/1e3;if(s<60)return"剛剛";if(s<3600)return Math.floor(s/60)+" 分鐘前";if(s<86400)return Math.floor(s/3600)+" 小時前";if(s<2592e3)return Math.floor(s/86400)+" 天前";return new Date(iso).toLocaleDateString("zh-HK")}
+function journalTitle(){var M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],d=new Date(),day=d.getDate(),suf=(day%10==1&&day!=11)?"st":(day%10==2&&day!=12)?"nd":(day%10==3&&day!=13)?"rd":"th";return M[d.getMonth()]+" "+day+suf+", "+d.getFullYear()}
+
+/* ---------- 啟動 + 路由 ---------- */
+SDB.auth.getSession().then(function(r){ME=r.data.session?r.data.session.user:null;route()});
+SDB.auth.onAuthStateChange(function(e,s){ME=s?s.user:null;route()});
+window.addEventListener("hashchange",route);
+function route(){
+  if(!ME){viewAuth();return}
+  loadFavSet();
+  var m=(location.hash||"#/").match(/^#\/page\/([0-9a-f-]{10,})/i);
+  if(m)viewPage(m[1]);else viewHome();
+}
+async function loadFavSet(){var r=await SDB.from("favorites").select("page_id");FAVS=new Set((r.data||[]).map(function(x){return x.page_id}))}
+
+/* ---------- 登入 ---------- */
+function viewAuth(){
+  $("app").innerHTML='<div style="min-height:100vh;display:grid;place-items:center;padding:20px"><div class="card" style="padding:22px;max-width:360px;width:100%">'+
+  '<h1 style="font-size:20px">📚 知識維基</h1><p style="color:#999;font-size:13px;margin:4px 0 14px">'+(AUTHMODE==="login"?"登入以繼續":"建立你的帳號")+'</p>'+
+  '<input id="em" placeholder="Email" style="margin-bottom:8px"><input id="pw" type="password" placeholder="密碼（至少6位）">'+
+  '<p id="amsg" style="color:#c22;font-size:12px;margin:8px 0 0"></p>'+
+  '<button class="btn" style="width:100%;margin-top:10px" onclick="submitAuth()">'+(AUTHMODE==="login"?"進入":"註冊")+'</button>'+
+  '<button style="width:100%;margin-top:10px;color:#999;font-size:12px" onclick="AUTHMODE=AUTHMODE===\'login\'?\'signup\':\'login\';viewAuth()">'+(AUTHMODE==="login"?"還沒有帳號？註冊一個":"已有帳號？返回登入")+'</button></div></div>';
+  $("pw").addEventListener("keydown",function(e){if(e.key==="Enter")submitAuth()});
+}
+async function submitAuth(){
+  $("amsg").textContent="";
+  var em=$("em").value.trim(),pw=$("pw").value;
+  var r=AUTHMODE==="login"?await SDB.auth.signInWithPassword({email:em,password:pw}):await SDB.auth.signUp({email:em,password:pw});
+  if(r.error)$("amsg").textContent=r.error.message;
+}
+async function logout(){await SDB.auth.signOut()}
+
+/* ---------- 側欄 ---------- */
+function buildShell(){
+  $("app").innerHTML='<div id="wrap"><button id="burger" onclick="sbOpen()">☰</button><div id="mask" onclick="sbClose()"></div>'+
+  '<aside id="sb"><div id="sbBody">'+
+  '<div id="logo">📚 <span id="logoTxt">知識維基</span><button id="collapse" onclick="sbMini()">'+(COLLAPSED?"»":"«")+'</button></div>'+
+  '<button class="sbi" onclick="go(\'#/\')">🔍 <span class="t">搜索</span></button>'+
+  '<button class="sbi" onclick="focusNew()">＋ <span class="t">新增頁面</span></button><hr>'+
+  '<button class="sbi" onclick="openJournal()">🗓 <span class="t">今日日記</span></button>'+
+  '<button class="sbi" onclick="coming(\'🌌 知識圖譜\',\'Phase 5\')">🌌 <span class="t">知識圖譜</span></button>'+
+  '<button class="sbi" onclick="go(\'#/\')">📚 <span class="t">所有頁面</span></button><hr>'+
+  '<div class="sbLabel">⭐ 收藏</div><div id="sbFavs"></div><hr>'+
+  '<button class="sbi" onclick="toolsToggle()">🧰 <span class="t">工具箱 ▸</span></button>'+
+  '<div id="sbTools" style="display:none">'+
+    '<button class="sbi" style="padding-left:22px" onclick="coming(\'💡 想法孵化器\',\'Phase 3\')">💡 <span class="t">想法孵化器</span></button>'+
+    '<button class="sbi" style="padding-left:22px" onclick="coming(\'🎵 音樂生成器\',\'Phase 4\')">🎵 <span class="t">音樂生成器</span></button></div>'+
+  '<button class="sbi" onclick="coming(\'⚙️ 控制台\',\'Phase 6\')">⚙️ <span class="t">控制台</span></button>'+
+  '<button class="sbi" onclick="coming(\'❓ 說明頁\',\'Phase 2\')">❓ <span class="t">說明</span></button>'+
+  '</div><button id="logout" onclick="logout()">⎋ 登出</button></aside><main id="main"></main></div>';
+  if(COLLAPSED)$("sb").classList.add("mini");
+  renderSbFavs();
+}
+function sbOpen(){$("sb").classList.add("open");$("mask").style.display="block"}
+function sbClose(){$("sb").classList.remove("open");$("mask").style.display="none"}
+function go(h){sbClose();location.hash=h}
+function sbMini(){COLLAPSED=!COLLAPSED;$("sb").classList.toggle("mini",COLLAPSED);$("collapse").textContent=COLLAPSED?"»":"«";localStorage.setItem("sbcol",COLLAPSED?"1":"0")}
+function toolsToggle(){var t=$("sbTools");t.style.display=t.style.display==="none"?"block":"none"}
+function focusNew(){go("#/");setTimeout(function(){var q=$("q");if(q)q.focus()},80)}
+function coming(name,phase){sbClose();$("main").innerHTML='<div class="pad"><div class="card empty" style="padding:40px 20px">'+name+'<br>將喺 '+phase+' 開通 ✨</div></div>'}
+async function renderSbFavs(){
+  var box=$("sbFavs");if(!box)return;
+  var r=await SDB.from("favorites").select("pages(id,title,icon)").order("created_at");
+  var rows=(r.data||[]).map(function(x){return x.pages}).filter(Boolean);
+  box.innerHTML=rows.length?rows.map(function(p){return '<button class="sbi" data-id="'+p.id+'">'+(p.icon||"📄")+' <span class="t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.title)+'</span></button>'}).join(""":'<div class="sbLabel" style="color:#c9c4bb">喺頁面撳☆收藏</div>';
+  Array.prototype.forEach.call(box.querySelectorAll("button"),function(b){b.onclick=function(){go("#/page/"+b.dataset.id)}});
+}
+
+/* ---------- 首頁 ---------- */
+async function viewHome(){
+  if(!$("wrap"))buildShell();sbClose();
+  $("main").innerHTML='<div class="pad"><div class="searchrow"><input id="q" placeholder="搜尋…／輸入新頁名（支持 音樂/莫扎特）"><button class="btn" onclick="quickCreate()">＋ 新增</button></div>'+
+  '<div id="favBox" style="margin-bottom:16px"></div>'+
+  '<h2 class="sec">⏱ 最近修改</h2><div class="card" id="recentBox"><div class="empty">載入中…</div></div></div>';
+  $("q").addEventListener("keydown",function(e){if(e.key==="Enter")quickCreate()});
+  $("q").addEventListener("input",filterRecent);
+  await loadHome();
+}
+async function loadHome(){
+  var a=await SDB.from("pages").select("id,title,icon,source,is_journal,updated_at").order("updated_at",{ascending:false}).limit(50);
+  RECENT=a.data||[];
+  var b=await SDB.from("favorites").select("page_id");
+  FAVS=new Set((b.data||[]).map(function(x){return x.page_id}));
+  drawFavChips();drawRecent();
+}
+function drawFavChips(){
+  var box=$("favBox");if(!box)return;
+  var favs=RECENT.filter(function(p){return FAVS.has(p.id)});
+  box.innerHTML=favs.length?'<h2 class="sec">⭐ 收藏</h2>'+favs.map(function(p){return '<a class="chip" href="#/page/'+p.id+'">'+(p.icon||(p.is_journal?"🗓":"📄"))+" "+esc(p.title)+'</a>'}).join(""):"";
+}
+function drawRecent(list){
+  var box=$("recentBox");if(!box)return;
+  var items=list||RECENT;
+  box.innerHTML=items.length?items.map(function(p){return '<div class="rowitem">'+
+    '<button class="star" onclick="toggleFav(\''+p.id+'\')">'+(FAVS.has(p.id)?"⭐":"☆")+'</button>'+
+    '<a href="#/page/'+p.id+'">'+(p.icon||(p.is_journal?"🗓":"📄"))+" "+esc(p.title)+'</a>'+
+    (p.source==="incubator"?'<span class="tag">💡想法</span>':"")+
+    '<span class="time">'+timeAgo(p.updated_at)+'</span></div>'}).join(""):'<div class="empty">仲未有頁面——喺上面打個名撳 Enter 就建到 ✨</div>';
+}
+function filterRecent(){
+  var q=($("q").value||"").trim().toLowerCase();
+  if(!q){drawRecent();return}
+  drawRecent(RECENT.filter(function(p){return p.title.toLowerCase().indexOf(q)>=0}));
+}
+async function toggleFav(id){
+  var had=FAVS.has(id);
+  if(had){var d=await SDB.from("favorites").delete().eq("page_id",id);if(d.error){toast(d.error.message);return}FAVS.delete(id)}
+  else{var i=await SDB.from("favorites").insert({user_id:ME.id,page_id:id});if(i.error){toast("收藏失敗："+i.error.message);return}FAVS.add(id)}
+  renderSbFavs();
+  if($("recentBox")){drawRecent();drawFavChips()}
+  if($("pfav"))$("pfav").textContent=FAVS.has(id)?"⭐":"☆";
+}
+
+/* ---------- 智能建頁：支持 路徑/ 同 ___ 命名 ---------- */
+async function quickCreate(){
+  var path=($("q").value||"").trim();if(!path||!ME)return;
+  var segs=path.split("/").map(function(s){return s.trim()}).filter(Boolean);
+  if(!segs.length)return;
+  var parent=null,last=null;
+  for(var i=0;i<segs.length;i++){
+    var q=SDB.from("pages").select("id").eq("title",segs[i]);
+    q=parent?q.eq("parent_id",parent):q.is("parent_id",null);
+    var r=await q.maybeSingle();
+    if(!r.data){
+      var ins=await SDB.from("pages").insert({user_id:ME.id,title:segs[i],parent_id:parent}).select("id").single();
+      if(ins.error){toast("建頁失敗："+ins.error.message);return}
+      r={data:ins.data};
+    }
+    parent=r.data.id;last=r.data.id;
+  }
+  toast("已建立「"+segs.join("/")+"」✓");
+  location.hash="#/page/"+last;
+}
+
+/* ---------- 今日日記 ---------- */
+async function openJournal(){
+  var t=journalTitle();
+  var r=await SDB.from("pages").select("id").eq("title",t).eq("is_journal",true).maybeSingle();
+  var id=r.data?r.data.id:null;
+  if(!id){
+    var ins=await SDB.from("pages").insert({user_id:ME.id,title:t,is_journal:true,source:"journal"}).select("id").single();
+    if(ins.error){toast(ins.error.message);return}
+    id=ins.data.id;
+  }
+  go("#/page/"+id);
+}
+
+/* ---------- 頁面視圖 ---------- */
+async function viewPage(id){
+  if(!$("wrap"))buildShell();sbClose();
+  $("main").innerHTML='<div class="pad"><div class="empty">載入中…</div></div>';
+  var pr=await SDB.from("pages").select("*").eq("id",id).maybeSingle();
+  if(!pr.data){$("main").innerHTML='<div class="pad"><div class="card empty">搵唔到呢個頁面<br><a href="#/" style="color:#8b5cf6">← 返回首頁</a></div></div>';return}
+  var p=pr.data,trail=[],cur=p;
+  while(cur.parent_id&&trail.length<6){
+    var par=await SDB.from("pages").select("id,title,parent_id").eq("id",cur.parent_id).maybeSingle();
+    if(!par.data)break;
+    trail.unshift(par.data);cur=par.data;
+  }
+  var bl=await SDB.from("blocks").select("id,content").eq("page_id",id).order("order_num");
+  var ch=await SDB.from("pages").select("id,title").eq("parent_id",id);
+  var fv=await SDB.from("favorites").select("page_id").eq("page_id",id).maybeSingle();
+  var faved=fv.data?true:false;
+  $("main").innerHTML='<div class="pad">'+
+   (trail.length?'<div class="bc">'+trail.map(function(t){return '<a href="#/page/'+t.id+'">'+esc(t.title)+"</a> / "}).join("")+'</div>':"")+
+   '<div style="display:flex;align-items:center;gap:10px"><h1 class="pt">'+(p.icon||(p.is_journal?"🗓":"📄"))+" "+esc(p.title)+'</h1>'+
+   '<button id="pfav" class="star" onclick="toggleFav(\''+p.id+'\')">'+(faved?"⭐":"☆")+'</button></div>'+
+   '<div class="time" style="margin-top:2px">更新於 '+timeAgo(p.updated_at)+'</div>'+
+   '<div class="card" style="margin-top:14px;padding:16px">'+
+   ((bl.data||[]).length?bl.data.map(function(b){return '<div style="padding:3px 0;font-size:15px">'+esc(b.content)+'</div>'}).join(""):'<div class="empty">空白頁面。✍️ Phase 2 會喺呢度開通 Block 編輯器，到時可以直接打 [[連結]]。</div>')+
+   '</div>'+
+   ((ch.data||[]).length?'<h2 class="sec" style="margin-top:14px">子頁面</h2>'+ch.data.map(function(c){return '<a class="chip" href="#/page/'+c.id+'">📄 '+esc(c.title)+'</a>'}).join(""):"")+
+   '</div>';
+}
+</script>
+</body>
+</html>

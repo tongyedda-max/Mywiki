@@ -56,37 +56,35 @@ h1.pt{font-size:22px}
 </head>
 <body>
 <div id="err"></div>
-<div id="app"></div>
- <script>
+<script>
 window.onerror=function(m){var e=document.getElementById("err");e.style.display="block";e.textContent="⚠️ "+m;return false};
 window.addEventListener("unhandledrejection",function(e){var r=e.reason;window.onerror((r&&r.message)?r.message:String(r))});
 </script>
-
+<div id="app"></div>
 <script>
-window.onerror=function(m){var e=document.getElementById("err");e.style.display="block";e.textContent="⚠️ "+m;return false};
-
 /* ══════════════════════════════════════════
-   ★★ 第一件事：換下面兩行做你嘅資料 ★★
-   Supabase → Settings → API 抄低嗰兩個值
-   ══════════════════════════════════════════ */
-const SUPABASE_URL="https://xlplarozmcjcqgvfsyaj.supabase.co";
-const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhscGxhcm96bWNqY3FndmZzeWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTk0MzAsImV4cCI6MjEwNDQzNTQzMH0.ObTyjGPjlZbCjrMVQzllCmFIKYaDRnVL-3CXXgY21mQ";
+   ★★ 換下面兩行做你嘅資料（直引號 " ！）★★
+   ═════════════════════════missing ) 病灶通常喺呢度 ══════════════════════════════════════════ */
+const SUPABASE_URL="ObTyjGPjlZbCjrMVQzllCmFIKYaDRnVL-3CXXgY21mQ";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhscGxhcm96bWNqY3FndmZzeWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTk0MzAsImV4cCI6MjEwNDQzNTQzMH0.ObTyjGPjlZbCjrMVQzllCmFIKYaDRnVL-3CXXgY21mQ
+ ";
 
 if(SUPABASE_URL.indexOf("貼上")>=0||SUPABASE_ANON_KEY.indexOf("貼上")>=0){
- document.getElementById("app").innerHTML='<div style="max-width:420px;margin:60px auto;padding:0 16px;line-height:1.8;font-size:14px"><h2>⚙️ 仲差一步設定</h2><p>打開 index.html，搵到 <b>SUPABASE_URL</b> 同 <b>SUPABASE_ANON_KEY</b> 兩行，換成 Supabase → Settings → API 嗰兩個值，再 Commit 就得。</p></div>';
- throw new Error("請先設定 Supabase URL / KEY");
+ document.getElementById("app").innerHTML='<div style="max-width:420px;margin:60px auto;padding:0 16px;line-height:1.8;font-size:14px"><h2>⚙️ 仲差一步設定</h2><p>打開 index.html，搵到 SUPABASE_URL 同 SUPABASE_ANON_KEY 兩行，換成 Supabase → Settings → API 嗰兩個值，再 Commit 就得。</p></div>';
+}else{
+ boot();
 }
 
+function boot(){
 const SDB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let ME=null,FAVS=new Set(),COLLAPSED=localStorage.getItem("sbcol")==="1",RECENT=[],AUTHMODE="login";
-
-const $=id=>document.getElementById(id);
-function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+const $=function(id){return document.getElementById(id)};
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function toast(m){var t=document.createElement("div");t.textContent=m;t.style.cssText="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#333;color:#fff;font-size:13px;padding:9px 16px;border-radius:999px;z-index:9999";document.body.appendChild(t);setTimeout(function(){t.remove()},2200)}
 function timeAgo(iso){var s=(Date.now()-new Date(iso).getTime())/1e3;if(s<60)return"剛剛";if(s<3600)return Math.floor(s/60)+" 分鐘前";if(s<86400)return Math.floor(s/3600)+" 小時前";if(s<2592e3)return Math.floor(s/86400)+" 天前";return new Date(iso).toLocaleDateString("zh-HK")}
 function journalTitle(){var M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],d=new Date(),day=d.getDate(),suf=(day%10==1&&day!=11)?"st":(day%10==2&&day!=12)?"nd":(day%10==3&&day!=13)?"rd":"th";return M[d.getMonth()]+" "+day+suf+", "+d.getFullYear()}
 
-/* ---------- 啟動 + 路由 ---------- */
+/* 啟動 + 路由 */
 SDB.auth.getSession().then(function(r){ME=r.data.session?r.data.session.user:null;route()});
 SDB.auth.onAuthStateChange(function(e,s){ME=s?s.user:null;route()});
 window.addEventListener("hashchange",route);
@@ -98,25 +96,35 @@ function route(){
 }
 async function loadFavSet(){var r=await SDB.from("favorites").select("page_id");FAVS=new Set((r.data||[]).map(function(x){return x.page_id}))}
 
-/* ---------- 登入 ---------- */
+/* 登入 */
 function viewAuth(){
   $("app").innerHTML='<div style="min-height:100vh;display:grid;place-items:center;padding:20px"><div class="card" style="padding:22px;max-width:360px;width:100%">'+
   '<h1 style="font-size:20px">📚 知識維基</h1><p style="color:#999;font-size:13px;margin:4px 0 14px">'+(AUTHMODE==="login"?"登入以繼續":"建立你的帳號")+'</p>'+
   '<input id="em" placeholder="Email" style="margin-bottom:8px"><input id="pw" type="password" placeholder="密碼（至少6位）">'+
   '<p id="amsg" style="color:#c22;font-size:12px;margin:8px 0 0"></p>'+
   '<button class="btn" style="width:100%;margin-top:10px" onclick="submitAuth()">'+(AUTHMODE==="login"?"進入":"註冊")+'</button>'+
-  '<button style="width:100%;margin-top:10px;color:#999;font-size:12px" onclick="AUTHMODE=AUTHMODE===\'login\'?\'signup\':\'login\';viewAuth()">'+(AUTHMODE==="login"?"還沒有帳號？註冊一個":"已有帳號？返回登入")+'</button></div></div>';
+  '<button style="width:100%;margin-top:10px;color:#999;font-size:12px" onclick="AUTHMODE=(AUTHMODE===\'login\'?\'signup\':\'login\');viewAuth()">'+(AUTHMODE==="login"?"還沒有帳號？註冊一個":"已有帳號？返回登入")+'</button></div></div>';
   $("pw").addEventListener("keydown",function(e){if(e.key==="Enter")submitAuth()});
 }
 async function submitAuth(){
-  $("amsg").textContent="";
+  $("amsg").textContent="";$("amsg").style.color="#c22";
   var em=$("em").value.trim(),pw=$("pw").value;
-  var r=AUTHMODE==="login"?await SDB.auth.signInWithPassword({email:em,password:pw}):await SDB.auth.signUp({email:em,password:pw});
-  if(r.error)$("amsg").textContent=r.error.message;
+  if(AUTHMODE==="login"){
+    var r=await SDB.auth.signInWithPassword({email:em,password:pw});
+    if(r.error){
+      if(r.message==="Email not confirmed")$("amsg").textContent="📧 呢個帳號仲未確認——去收件匣（記得睇埋垃圾郵件夾）撳確認連結先。";
+      else $("amsg").textContent=r.message;
+    }
+  }else{
+    var s=await SDB.auth.signUp({email:em,password:pw});
+    if(s.error){$("amsg").textContent=s.error.message;return}
+    $("amsg").style.color="#1a7f37";
+    $("amsg").textContent="✅ 確認郵件已發送至 "+em+"——去收件匣撳入去個連結（多數喺垃圾郵件夾），確認後返嚟登入就得。";
+  }
 }
 async function logout(){await SDB.auth.signOut()}
 
-/* ---------- 側欄 ---------- */
+/* 側欄 */
 function buildShell(){
   $("app").innerHTML='<div id="wrap"><button id="burger" onclick="sbOpen()">☰</button><div id="mask" onclick="sbClose()"></div>'+
   '<aside id="sb"><div id="sbBody">'+
@@ -138,7 +146,7 @@ function buildShell(){
   renderSbFavs();
 }
 function sbOpen(){$("sb").classList.add("open");$("mask").style.display="block"}
-function sbClose(){$("sb").classList.remove("open");$("mask").style.display="none"}
+function sbClose(){var s=$("sb");if(s)s.classList.remove("open");var m=$("mask");if(m)m.style.display="none"}
 function go(h){sbClose();location.hash=h}
 function sbMini(){COLLAPSED=!COLLAPSED;$("sb").classList.toggle("mini",COLLAPSED);$("collapse").textContent=COLLAPSED?"»":"«";localStorage.setItem("sbcol",COLLAPSED?"1":"0")}
 function toolsToggle(){var t=$("sbTools");t.style.display=t.style.display==="none"?"block":"none"}
@@ -148,11 +156,11 @@ async function renderSbFavs(){
   var box=$("sbFavs");if(!box)return;
   var r=await SDB.from("favorites").select("pages(id,title,icon)").order("created_at");
   var rows=(r.data||[]).map(function(x){return x.pages}).filter(Boolean);
-  box.innerHTML=rows.length?rows.map(function(p){return '<button class="sbi" data-id="'+p.id+'">'+(p.icon||"📄")+' <span class="t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.title)+'</span></button>'}).join(""":'<div class="sbLabel" style="color:#c9c4bb">喺頁面撳☆收藏</div>';
+  box.innerHTML=rows.length?rows.map(function(p){return '<button class="sbi" data-id="'+p.id+'">'+(p.icon||"📄")+' <span class="t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.title)+'</span></button>'}).join(""):'''<div class="sbLabel" style="color:#c9c4bb">喺頁面撳☆收藏</div>';
   Array.prototype.forEach.call(box.querySelectorAll("button"),function(b){b.onclick=function(){go("#/page/"+b.dataset.id)}});
 }
 
-/* ---------- 首頁 ---------- */
+/* 首頁 */
 async function viewHome(){
   if(!$("wrap"))buildShell();sbClose();
   $("main").innerHTML='<div class="pad"><div class="searchrow"><input id="q" placeholder="搜尋…／輸入新頁名（支持 音樂/莫扎特）"><button class="btn" onclick="quickCreate()">＋ 新增</button></div>'+
@@ -197,7 +205,7 @@ async function toggleFav(id){
   if($("pfav"))$("pfav").textContent=FAVS.has(id)?"⭐":"☆";
 }
 
-/* ---------- 智能建頁：支持 路徑/ 同 ___ 命名 ---------- */
+/* 智能建頁：支持 路徑/ 同 ___ 命名 */
 async function quickCreate(){
   var path=($("q").value||"").trim();if(!path||!ME)return;
   var segs=path.split("/").map(function(s){return s.trim()}).filter(Boolean);
@@ -218,7 +226,7 @@ async function quickCreate(){
   location.hash="#/page/"+last;
 }
 
-/* ---------- 今日日記 ---------- */
+/* 今日日記 */
 async function openJournal(){
   var t=journalTitle();
   var r=await SDB.from("pages").select("id").eq("title",t).eq("is_journal",true).maybeSingle();
@@ -231,7 +239,7 @@ async function openJournal(){
   go("#/page/"+id);
 }
 
-/* ---------- 頁面視圖 ---------- */
+/* 頁面視圖 */
 async function viewPage(id){
   if(!$("wrap"))buildShell();sbClose();
   $("main").innerHTML='<div class="pad"><div class="empty">載入中…</div></div>';
@@ -252,11 +260,12 @@ async function viewPage(id){
    '<div style="display:flex;align-items:center;gap:10px"><h1 class="pt">'+(p.icon||(p.is_journal?"🗓":"📄"))+" "+esc(p.title)+'</h1>'+
    '<button id="pfav" class="star" onclick="toggleFav(\''+p.id+'\')">'+(faved?"⭐":"☆")+'</button></div>'+
    '<div class="time" style="margin-top:2px">更新於 '+timeAgo(p.updated_at)+'</div>'+
-   '<div class="card" style="margin-top:14px;padding:16px">'+
+   '<div class="card" area="content" style="margin-top:14px;padding:16px">'+
    ((bl.data||[]).length?bl.data.map(function(b){return '<div style="padding:3px 0;font-size:15px">'+esc(b.content)+'</div>'}).join(""):'<div class="empty">空白頁面。✍️ Phase 2 會喺呢度開通 Block 編輯器，到時可以直接打 [[連結]]。</div>')+
    '</div>'+
    ((ch.data||[]).length?'<h2 class="sec" style="margin-top:14px">子頁面</h2>'+ch.data.map(function(c){return '<a class="chip" href="#/page/'+c.id+'">📄 '+esc(c.title)+'</a>'}).join(""):"")+
    '</div>';
+}
 }
 </script>
 </body>

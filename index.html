@@ -42,7 +42,9 @@ h2.sec{font-size:12px;font-weight:bold;color:#9a958c;margin:0 0 8px}
 <div id="app"></div>
 <script>
 window.onerror=function(m){var e=document.getElementById("err");e.style.display="block";e.textContent="⚠️ "+m;return false};
+window.addEventListener("unhandledrejection",function(e){var r=e.reason;window.onerror((r&&r.message)?r.message:String(r))});
 </script>
+
 <script>
 var SUPA_URL="https://xlplarozmcjcqgvfsyaj.supabase.co";
 var SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhscGxhcm96bWNqY3FndmZzeWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTk0MzAsImV4cCI6MjEwNDQzNTQzMH0.ObTyjGPjlZbCjrMVQzllCmFIKYaDRnVL-3CXXgY21mQ";

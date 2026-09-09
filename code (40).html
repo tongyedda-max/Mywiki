@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>知識維基</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8f7f4;color:#222;font-size:15px}
+#err{position:fixed;top:0;left:0;right:0;background:#b00;color:#fff;font-size:12px;padding:6px 10px;z-index:9999;display:none;white-space:pre-wrap}
+button{font-family:inherit;cursor:pointer;border:none;background:none;font-size:14px;color:inherit}
+input,textarea,select{font-family:inherit;font-size:16px;border:1px solid #ccc;border-radius:10px;padding:10px 12px;width:100%;background:#fff;outline:none}
+input:focus,textarea:focus{border-color:#8b5cf6}
+.btn{background:#8b5cf6;color:#fff;font-weight:bold;border-radius:10px;padding:11px 16px}
+.card{background:#fff;border:1px solid #e5e3de;border-radius:14px}
+hr{border:none;border-top:1px solid #e5e3de;margin:6px 0}
+#burger{position:fixed;top:10px;left:10px;z-index:60;width:40px;height:40px;border-radius:10px;background:#fff;border:1px solid #e5e3de;font-size:17px}
+#mask{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:55;display:none}
+#sb{position:fixed;top:0;left:0;bottom:0;width:232px;background:#f2f0eb;border-right:1px solid #e5e3de;z-index:70;display:none;flex-direction:column}
+#sb.open{display:flex}
+#sbBody{flex:1;overflow-y:auto;padding:10px 8px}
+.sbi{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 9px;border-radius:9px;font-size:14px}
+.sbi:hover{background:#e9e6df}
+.sbLabel{padding:8px 9px 2px;font-size:11px;font-weight:bold;color:#9a958c}
+#logout{margin:8px;padding:8px;border-radius:9px;color:#777;font-size:12px;text-align:left}
+#logo{padding:6px 9px 10px;font-weight:bold;font-size:15px}
+#wrap{display:flex;min-height:100vh}
+#main{flex:1;min-width:0}
+.pad{max-width:1080px;margin:0 auto;padding:60px 16px 70px}
+.searchrow{display:flex;gap:8px;margin-bottom:18px}
+.chip{display:inline-block;background:#fff;border:1px solid #e5e3de;border-radius:999px;padding:6px 12px;font-size:13px;margin:0 6px 6px 0;text-decoration:none;color:#222}
+.rowitem{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid #f0eeea}
+.rowitem a{flex:1;min-width:0;text-decoration:none;color:#6d28d9;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.time{font-size:11px;color:#aaa;white-space:nowrap}
+.star{font-size:16px;width:26px}
+h2.sec{font-size:12px;font-weight:bold;color:#9a958c;margin:0 0 8px}
+.empty{padding:22px;text-align:center;color:#b5b0a7;font-size:13px}
+.md-body h1{font-size:1.5em;margin:.5em 0;border-bottom:1px solid #eee;padding-bottom:.3em}
+.md-body h2{font-size:1.3em;margin:.5em 0}
+.md-body p{margin:.5em 0;line-height:1.6}
+.md-body code{background:#eee;padding:2px 4px;border-radius:4px;font-family:monospace}
+.md-body blockquote{border-left:3px solid #ddd;margin:0;padding-left:10px;color:#666}
+.md-link{color:#8b5cf6;background:#f3f0ff;padding:0 4px;border-radius:4px;text-decoration:none;font-weight:500}
+.backlink-item{padding:8px 0;border-bottom:1px solid #eee}
+.backlink-item:last-child{border-bottom:none}
+#toolboxSub{display:none;padding-left:14px}
+#toolboxSub.open{display:block}
+.drawer2{background:#fff;border:1px solid #e5e3de;border-radius:12px;margin-bottom:10px;overflow:hidden}
+.drawer2-hd{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;background:#f2f0eb;font-weight:bold;font-size:14px;user-select:none}
+.drawer2-bd{padding:12px;overflow-y:auto}
+.drawer2.collapsed .drawer2-bd{display:none}
+.question-box{font-style:italic;color:#555;background:#fff8e1;padding:12px;border-radius:8px;margin-bottom:8px;border-left:4px solid #ffb300;line-height:1.6}
+.note-item{padding:8px;border-bottom:1px solid #eee;font-size:13px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note-item:hover{background:#f9f9f9}
+.manage-card{background:#fff;margin:8px 0;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);cursor:pointer;border-left:4px solid transparent}
+.manage-card.selected{border-left-color:#8b5cf6;background:#f3f0ff}
+.manage-card h4{margin:0 0 4px;font-size:12px;color:#888;font-weight:normal}
+.manage-card p{margin:0;font-size:15px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.manage-card .tags{margin-top:6px;font-size:12px;color:#8b5cf6}
+#network-container{height:450px;border:1px solid #e5e3de;border-radius:10px;background:#fafafa}
+#network-main{height:65vh}
+.batch-del-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#ef4444;color:#fff;padding:10px 22px;border-radius:999px;display:none;cursor:pointer;z-index:90;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.batch-del-bar.show{display:block}
+.tabsbar{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}
+.tabsbar button{flex:1;min-width:70px;padding:9px;border:1px solid #e5e3de;background:#fff;border-radius:8px;font-size:13px}
+.tabsbar button.on{background:#8b5cf6;color:#fff;border-color:#8b5cf6}
+.gpage{display:none}.gpage.show{display:block}
+.chipsrow{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.chipbtn{padding:6px 10px;border-radius:999px;background:#ede9fe;border:1px solid #ddd6fe;font-size:13px;color:#4c1d95}
+.chipbtn.on{background:#8b5cf6;color:#fff;border-color:#8b5cf6}
+.segbtns{display:inline-flex;flex-wrap:wrap;border:1px solid #e5e3de;border-radius:8px;overflow:hidden}
+.segbtns button{border:none;border-radius:0;padding:8px 10px;background:#fff;font-size:13px}
+.segbtns button.on{background:#8b5cf6;color:#fff}
+.grow{display:flex;gap:6px;margin:4px 0;align-items:flex-start}
+.grow input,.grow textarea{flex:1;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:15px}
+.grow .tm{max-width:78px;flex:none;font-family:monospace;text-align:center}
+.gbtn{padding:8px 10px;border:1px solid #ccc;border-radius:8px;background:#fff;font-size:13px;white-space:nowrap}
+.gbtn.pri{background:#8b5cf6;color:#fff;border-color:#8b5cf6}
+.traylab{font-size:12px;color:#888;margin:6px 0 2px}
+.glabel{font-size:13px;color:#555;display:block;margin:8px 0 2px}
+.vrow2{border-bottom:1px solid #eee;padding:8px 2px;font-size:14px}
+.vrow2 b{font-size:15px}.vrow2 .en{color:#8b5cf6}
+.vrow2 .vn{display:block;color:#777;font-size:13px;margin-top:2px}
+.catbar2{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.catbar2 button{font-size:12px;padding:5px 9px;border:1px solid #e5e3de;background:#fff;border-radius:6px}
+.catbar2 button.on{background:#333;color:#fff}
+.gobtn{background:#8b5cf6;color:#fff;border:none;width:100%;font-size:16px;padding:13px;margin-top:12px;border-radius:10px;font-weight:bold}
+.clrbtn{font-size:13px;color:#a33;margin-top:8px;width:100%;padding:8px;background:#fff;border:1px solid #fca5a5;border-radius:8px}
+.wikibtn{font-size:13px;color:#6d28d9;margin-top:8px;width:100%;padding:8px;background:#fff;border:1px solid #c4b5fd;border-radius:8px;font-weight:bold}
+#ytbox{width:100%;aspect-ratio:16/9;border:0;border-radius:8px}
+.ytmeta2{display:flex;gap:8px;align-items:center;margin:8px 0}
+.ytmeta2 img{width:80px;border-radius:6px}
+.gout{width:100%;min-height:150px;padding:10px;border:1px solid #ccc;border-radius:8px;font-family:monospace;font-size:13px}
+.wb{display:block}
+.wbL .card,.wbR .card{margin-bottom:12px}
+.cardhd{font-size:13px;font-weight:bold;color:#6d28d9;padding:10px 14px;border-bottom:1px solid #f0eeea;background:#faf9f7;border-radius:14px 14px 0 0;cursor:pointer;user-select:none}
+.cardhd .chv{float:right;color:#8b5cf6;font-size:16px;font-weight:normal;margin-left:8px}
+.cardhd:active{background:#efe9fb}
+.card.collapsed .cardbd{display:none}
+.card.collapsed{padding-bottom:0}
+.cardbd{padding:12px 14px}
+@media(min-width:900px){
+  .wb{display:flex;gap:14px;align-items:flex-start}
+  .wbL{width:340px;flex-shrink:0;position:sticky;top:52px;max-height:calc(100vh - 66px);overflow-y:auto}
+  .wbR{flex:1;min-width:0}
+}
+#mgac{position:fixed;display:none;background:#fff;border:1px solid #ddd6fe;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:9000;max-height:260px;overflow-y:auto}
+.acit{padding:8px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid #f5f3ff;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.acit.on,.acit:hover{background:#f3f0ff}
+.acit b{font-size:15px}
+.acit .en{color:#8b5cf6}
+.acit .ct{font-size:11px;color:#aaa;white-space:nowrap}
+#mgMini{position:fixed;bottom:0;left:0;right:0;background:#1f1b2e;color:#fff;display:none;gap:8px;align-items:center;padding:10px 12px;z-index:8500;border-radius:14px 14px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.3)}
+#mgMini button{background:#8b5cf6;color:#fff;border-radius:8px;padding:8px 12px;font-size:14px}
+#mgMini .mtime{font-family:monospace;font-size:17px;min-width:52px;text-align:center}
+.ovrow{display:flex;align-items:center;gap:8px;padding:7px 12px;border-top:1px solid #f5f3ef;font-size:13px}
+.ovrow .ovl{color:#888;min-width:86px;flex-shrink:0}
+.ovrow .ovv{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ovrow button{font-size:11px;padding:3px 8px;border:1px solid #ddd6fe;border-radius:6px;color:#8b5cf6;background:#fff}
+.draftitem{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #f0eeea;font-size:13px}
+</style>
+</head>
+<body>
+<div id="err"></div>
+<div id="app"></div>
+<script>
+window.onerror=function(m){var e=document.getElementById("err");e.style.display="block";e.textContent="⚠️ "+m;return false};
+</script>
+<script>
+var SUPA_URL="https://xlplarozmcjcqgvfsyaj.supabase.co";
+var SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhscGxhcm96bWNqY3FndmZzeWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTk0MzAsImV4cCI6MjEwNDQzNTQzMH0.ObTyjGPjlZbCjrMVQzllCmFIKYaDRnVL-3CXXgY21mQ";
+if(!SUPA_URL){document.getElementById("app").innerHTML='<h2 style="padding:40px">未設定 SUPA_URL / SUPA_KEY</h2>'}else{start()}
+
+function start(){
+var SDB=supabase.createClient(SUPA_URL,SUPA_KEY);
+var ME=null,FAVS={},RECENT=[];
+
+function el(id){return document.getElementById(id)}
+function esc(s){s=String(s==null?"":s);return s.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;")}
+function toast(msg){var t=document.createElement("div");t.textContent=msg;t.style.cssText="position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:#333;color:#fff;font-size:13px;padding:9px 16px;border-radius:999px;z-index:9999";document.body.appendChild(t);setTimeout(function(){t.remove()},2200)}
+function timeAgo(iso){var s=(Date.now()-new Date(iso).getTime())/1000;if(s<60)return"剛剛";if(s<3600)return Math.floor(s/60)+"分鐘前";if(s<86400)return Math.floor(s/3600)+"小時前";return new Date(iso).toLocaleDateString("zh-HK")}
+function journalTitle(){var M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];var d=new Date();var day=d.getDate();var suf="th";if(day==1||(day>20&&day%10==1))suf="st";else if(day==2||(day>20&&day%10==2))suf="nd";else if(day==3||(day>20&&day%10==3))suf="rd";return M[d.getMonth()]+" "+day+suf+", "+d.getFullYear()}
+
+window.addEventListener("hashchange",route);
+SDB.auth.getSession().then(function(res){ME=res.data.session?res.data.session.user:null;route()});
+SDB.auth.onAuthStateChange(function(ev,session){ME=session?session.user:null;route()});
+
+function route(){
+  if(!ME){viewAuth();return}
+  var h=location.hash||"#/";
+  var m=h.match(/^#\/page\/([0-9a-f-]{10,})/i);
+  var me=h.match(/^#\/edit\/?([0-9a-f-]{10,})?$/i);
+  if(m)viewPage(m[1]);
+  else if(me)viewEditor(me[1]||null);
+  else if(h.indexOf("#/search/")===0){viewHome();setTimeout(function(){if(el("q")){el("q").value=decodeURIComponent(h.split("/")[2]);el("q").dispatchEvent(new Event("input"))}},80)}
+  else if(h==="#/graph")viewGraph();
+  else if(h==="#/allpages")viewAllPages();
+  else if(h==="#/console")viewConsole();
+  else if(h==="#/help")viewHelp();
+  else if(h==="#/tool/incubator")viewIncubator();
+  else if(h==="#/tool/musgen")viewMusGen();
+  else viewHome();
+}
+
+/* ---- 登入 ---- */
+function viewAuth(){
+  var html='<div style="min-height:100vh;display:grid;place-items:center;padding:20px">';
+  html+='<div class="card" style="padding:22px;max-width:360px;width:100%">';
+  html+='<h1 style="font-size:20px">📚 知識維基</h1>';
+  html+='<p style="color:#999;font-size:13px;margin:4px 0 14px">使用 Email 登入</p>';
+  html+='<input id="em" placeholder="Email" style="margin-bottom:8px">';
+  html+='<input id="pw" type="password" placeholder="密碼（至少6位）">';
+  html+='<p id="amsg" style="color:#c22;font-size:12px;margin:8px 0 0"></p>';
+  html+='<button class="btn" style="width:100%;margin:10px 0" id="btnGo">進入</button>';
+  html+='</div></div>';
+  el("app").innerHTML=html;
+  el("btnGo").onclick=submitAuth;
+  el("pw").addEventListener("keydown",function(e){if(e.key==="Enter")submitAuth()});
+}
+async function submitAuth(){
+  el("amsg").textContent="";
+  var r=await SDB.auth.signInWithPassword({email:el("em").value.trim(),password:el("pw").value});
+  if(r.error){el("amsg").textContent=r.error.message;return}
+  ME=r.data.user;route();
+}
+async function logout(){await SDB.auth.signOut();ME=null;route()}
+
+/* ---- 外殼 ---- */
+function buildShell(){
+  var html='<div id="wrap">';
+  html+='<button id="burger">☰</button><div id="mask"></div>';
+  html+='<aside id="sb"><div id="sbBody">';
+  html+='<div id="logo">📚 知識維基</div>';
+  html+='<button class="sbi" data-act="home">🔍 搜索</button>';
+  html+='<button class="sbi" data-act="newpage">＋ 新增頁面</button>';
+  html+='<hr>';
+  html+='<button class="sbi" data-act="journal">🗓 今日日記 ⭐</button>';
+  html+='<button class="sbi" data-act="graph">🌌 知識圖譜</button>';
+  html+='<button class="sbi" data-act="allpages">📚 所有頁面</button><hr>';
+  html+='<div class="sbLabel">⭐ 收藏</div><div id="sbFavs"></div><hr>';
+  html+='<button class="sbi" data-act="toolbox" id="tbMain">🧰 工具箱 ▸</button>';
+  html+='<div id="toolboxSub">';
+  html+='<button class="sbi" data-act="incubator">💡 想法孵化器</button>';
+  html+='<button class="sbi" data-act="musgen">🎵 音樂記錄生成器</button>';
+  html+='</div>';
+  html+='<button class="sbi" data-act="console">⚙️ 控制台</button>';
+  html+='<button class="sbi" data-act="help">❓ 說明</button>';
+  html+='</div><button id="logout">⎋ 登出</button></aside>';
+  html+='<main id="main"></main></div>';
+  el("app").innerHTML=html;
+  el("burger").onclick=sidebarOpen;
+  el("mask").onclick=sidebarClose;
+  el("logout").onclick=logout;
+  var btns=document.querySelectorAll(".sbi");
+  for(var i=0;i<btns.length;i++)btns[i].onclick=onSideBtn;
+  renderSbFavs();
+}
+function sidebarOpen(){el("sb").style.display="flex";el("mask").style.display="block"}
+function sidebarClose(){if(!el("sb"))return;el("sb").style.display="none";el("mask").style.display="none"}
+function onSideBtn(){
+  var act=this.getAttribute("data-act");
+  if(act==="toolbox"){el("toolboxSub").classList.toggle("open");this.textContent=el("toolboxSub").classList.contains("open")?"🧰 工具箱 ▾":"🧰 工具箱 ▸"}
+  else if(act==="home"){location.hash="#/"}
+  else if(act==="allpages")location.hash="#/allpages";
+  else if(act==="newpage")location.hash="#/edit";
+  else if(act==="journal")openJournal();
+  else if(act==="graph")location.hash="#/graph";
+  else if(act==="console")location.hash="#/console";
+  else if(act==="help")location.hash="#/help";
+  else if(act==="incubator")location.hash="#/tool/incubator";
+  else if(act==="musgen")location.hash="#/tool/musgen";
+}
+async function renderSbFavs(){
+  var box=el("sbFavs");if(!box)return;
+  var r=await SDB.from("favorites").select("pages(id,title,icon)").order("created_at");
+  var rows=[],data=r.data||[];
+  for(var i=0;i<data.length;i++){if(data[i].pages)rows.push(data[i].pages)}
+  if(rows.length===0){box.innerHTML='<div class="sbLabel" style="color:#c9c4bb">喺頁面撳☆收藏</div>';return}
+  var html="";
+  for(var j=0;j<rows.length;j++)html+='<button class="sbi" data-goto="'+rows[j].id+'">'+(rows[j].icon||"📄")+" "+esc(rows[j].title)+'</button>';
+  box.innerHTML=html;
+  var btns=box.querySelectorAll("button");
+  for(var k=0;k<btns.length;k++)btns[k].onclick=function(){sidebarClose();location.hash="#/page/"+this.getAttribute("data-goto")};
+}
+
+/* ---- 通用：存入維基 ---- */
+async function saveToWiki(title,markdown,source){
+  if(!ME){toast("請先登入");return null}
+  var r=await SDB.from("pages").select("id").eq("title",title).maybeSingle();
+  var pageId;
+  if(r.data){pageId=r.data.id;await SDB.from("blocks").delete().eq("page_id",pageId)}
+  else{
+    var ins=await SDB.from("pages").insert({user_id:ME.id,title:title,source:source||"tool"}).select("id").single();
+    if(ins.error){toast("存入失敗："+ins.error.message);return null}
+    pageId=ins.data.id;
+  }
+  var bi=await SDB.from("blocks").insert({page_id:pageId,content:markdown,order_num:0});
+  if(bi.error){toast("內容失敗："+bi.error.message);return null}
+  toast("已存入維基 ✓「"+title+"」");
+  return pageId;
+}
+
+/* ---- 首頁 ---- */
+var Q_T=null;
+async function viewHome(){
+  if(!el("wrap"))buildShell();sidebarClose();
+  var html='<div class="pad" style="max-width:720px">';
+  html+='<div class="searchrow"><input id="q" placeholder="搜尋…／輸入新頁名（支持 音樂/莫扎特）"><button class="btn" id="btnNew">＋ 新增</button></div>';
+  html+='<div id="favBox" style="margin-bottom:16px"></div>';
+  html+='<h2 class="sec">⏱ 最近修改</h2><div class="card" id="recentBox"><div class="empty">載入中…</div></div>';
+  html+='<h2 class="sec" style="margin-top:18px">🌐 全庫搜尋</h2><div class="card" id="dbRes"><div class="empty">輸入關鍵字搜尋所有頁面…</div></div>';
+  html+='</div>';
+  el("main").innerHTML=html;
+  el("btnNew").onclick=function(){location.hash="#/edit"};
+  el("q").addEventListener("keydown",function(e){if(e.key==="Enter")quickCreate()});
+  el("q").addEventListener("input",onQ);
+  await loadHome();
+}
+async function loadHome(){
+  var a=await SDB.from("pages").select("id,title,icon,source,is_journal,updated_at").order("updated_at",{ascending:false}).limit(50);
+  RECENT=a.data||[];
+  var b=await SDB.from("favorites").select("page_id");
+  FAVS={};var fb=b.data||[];
+  for(var i=0;i<fb.length;i++)FAVS[fb[i].page_id]=1;
+  drawFavChips();drawRecent();
+}
+function drawFavChips(){
+  var box=el("favBox");if(!box)return;
+  var favs=[];for(var i=0;i<RECENT.length;i++)if(FAVS[RECENT[i].id])favs.push(RECENT[i]);
+  if(favs.length===0){box.innerHTML="";return}
+  var html='<h2 class="sec">⭐ 收藏</h2>';
+  for(var j=0;j<favs.length;j++)html+='<a class="chip" href="#/page/'+favs[j].id+'">'+(favs[j].icon||"📄")+" "+esc(favs[j].title)+'</a>';
+  box.innerHTML=html;
+}
+function recentHtml(list){
+  var html="";
+  for(var i=0;i<list.length;i++){var p=list[i];
+    html+='<div class="rowitem"><button class="star" data-fav="'+p.id+'">'+(FAVS[p.id]?"⭐":"☆")+'</button>';
+    html+='<a href="#/page/'+p.id+'">'+(p.icon||"📄")+" "+esc(p.title)+'</a>';
+    html+='<span class="time">'+timeAgo(p.updated_at)+'</span></div>';
+  }
+  return html;
+}
+function hookStars(box){
+  var stars=box.querySelectorAll(".star");
+  for(var k=0;k<stars.length;k++)stars[k].onclick=function(){toggleFav(this.getAttribute("data-fav"))};
+}
+function onQ(){
+  var q=el("q").value.trim();
+  filterRecent();
+  clearTimeout(Q_T);
+  Q_T=setTimeout(async function(){
+    var box=el("dbRes");if(!box)return;
+    if(!q){box.innerHTML='<div class="empty">輸入關鍵字搜尋所有頁面…</div>';return}
+    var r=await SDB.from("pages").select("id,title,icon,updated_at").ilike("title","%"+q+"%").limit(20);
+    var list=r.data||[];
+    if(list.length===0){box.innerHTML='<div class="empty">搵唔到「'+esc(q)+'」——撳 Enter 就用呢個名開新頁</div>';return}
+    box.innerHTML=recentHtml(list);hookStars(box);
+  },250);
+}
+function filterRecent(){
+  var q=el("q").value.trim().toLowerCase();
+  var list=[];for(var i=0;i<RECENT.length;i++)if(RECENT[i].title.toLowerCase().indexOf(q)>=0)list.push(RECENT[i]);
+  var box=el("recentBox");if(!box)return;
+  if(list.length===0){box.innerHTML='<div class="empty">最近修改入面冇符合——睇下下面「全庫搜尋」</div>';return}
+  box.innerHTML=recentHtml(list);hookStars(box);
+}
+async function toggleFav(id){
+  if(FAVS[id]){
+    var d=await SDB.from("favorites").delete().eq("page_id",id);
+    if(d.error){toast(d.error.message);return}
+    FAVS[id]=0;
+  }else{
+    var i=await SDB.from("favorites").insert({user_id:ME.id,page_id:id});
+    if(i.error){toast("收藏失敗："+i.error.message);return}
+    FAVS[id]=1;
+  }
+  renderSbFavs();
+  if(el("recentBox"))drawRecent();
+  if(el("favBox"))drawFavChips();
+}
+async function quickCreate(){
+  var path=el("q").value.trim();if(!path)return;
+  var segs=path.split("/"),clean=[],parent=null,last=null;
+  for(var i=0;i<segs.length;i++){var s=segs[i].trim();if(s)clean.push(s)}
+  if(clean.length===0)return;
+  for(var j=0;j<clean.length;j++){
+    var q=SDB.from("pages").select("id").eq("title",clean[j]);
+    if(parent)q=q.eq("parent_id",parent);else q=q.is("parent_id",null);
+    var r=await q.maybeSingle();
+    if(!r.data){
+      var ins=await SDB.from("pages").insert({user_id:ME.id,title:clean[j],parent_id:parent}).select("id").single();
+      if(ins.error){toast("建頁失敗："+ins.error.message);return}
+      r.data=ins.data;
+    }
+    parent=r.data.id;last=r.data.id;
+  }
+  toast("已建立 ✓");location.hash="#/page/"+last;
+}
+async function openJournal(){
+  var t=journalTitle();
+  var r=await SDB.from("pages").select("id").eq("title",t).eq("is_journal",true).maybeSingle();
+  var id=r.data?r.data.id:null;
+  if(!id){
+    var ins=await SDB.from("pages").insert({user_id:ME.id,title:t,is_journal:true,source:"journal"}).select("id").single();
+    if(ins.error){toast(ins.error.message);return}
+    id=ins.data.id;
+  }
+  location.hash="#/page/"+id;
+}
+
+/* ---- 所有頁面 ---- */
+async function viewAllPages(){
+  if(!el("wrap"))buildShell();sidebarClose();
+  el("main").innerHTML='<div class="pad"><div style="font-size:15px;font-weight:bold;margin-bottom:10px">📚 所有頁面</div><input id="apq" placeholder="篩選…" style="margin-bottom:10px"><div class="card" id="apList"><div class="empty">載入中…</div></div></div>';
+  var r=await SDB.from("pages").select("id,title,icon,is_journal,updated_at").order("title").limit(500);
+  var ALL=r.data||[];
+  function draw(){
+    var q=el("apq").value.trim().toLowerCase();
+    var list=ALL.filter(function(p){return!q||p.title.toLowerCase().indexOf(q)>=0});
+    var box=el("apList");
+    if(list.length===0){box.innerHTML='<div class="empty">冇頁面</div>';return}
+    var html="";
+    for(var i=0;i<list.length;i++){var p=list[i];
+      html+='<div class="rowitem"><a href="#/page/'+p.id+'">'+(p.is_journal?"🗓":(p.icon||"📄"))+" "+esc(p.title)+'</a><span class="time">'+timeAgo(p.updated_at)+'</span></div>';
+    }
+    box.innerHTML=html;
+  }
+  el("apq").addEventListener("input",draw);
+  draw();
+}
+
+/* ---- 編輯器 ---- */
+async function viewEditor(id){
+  if(!el("wrap"))buildShell();sidebarClose();
+  var isEdit=!!id,title="無標題",content="";
+  if(isEdit){
+    var pr=await SDB.from("pages").select("title").eq("id",id).maybeSingle();
+    if(pr.data)title=pr.data.title;
+    var bl=await SDB.from("blocks").select("content").eq("page_id",id).order("order_num");
+    if(bl.data)content=bl.data.map(function(x){return x.content}).join("\n\n");
+  }
+  var html='<div class="pad"><div class="card" style="padding:16px">';
+  html+='<div style="font-size:13px;color:#aaa;margin-bottom:4px">'+(isEdit?"編輯頁面":"新增頁面")+'</div>';
+  html+='<input id="epTitle" value="'+esc(title)+'" placeholder="標題">';
+  html+='<textarea id="epContent" style="min-height:50vh;margin-top:8px;resize:vertical" placeholder="支援 Markdown 與 [[連結]]"></textarea>';
+  html+='<div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">';
+  html+='<button id="epCancel" style="padding:8px 12px;border-radius:8px;border:1px solid #e5e3de;background:#fff;font-size:13px">取消</button>';
+  html+='<button id="epSave" class="btn" style="padding:8px 16px;font-size:13px">儲存</button></div></div></div>';
+  el("main").innerHTML=html;
+  el("epContent").value=content;
+  el("epSave").onclick=function(){savePage(id)};
+  el("epCancel").onclick=function(){if(confirm("確定要放棄編輯？")){if(isEdit)viewPage(id);else location.hash="#/"}};
+  setTimeout(function(){el("epTitle").focus()},100);
+}
+async function savePage(id){
+  var isEdit=!!id;
+  var title=el("epTitle").value.trim()||"無標題";
+  var content=el("epContent").value.trim();
+  var pageId=id;
+  if(!isEdit){
+    var ins=await SDB.from("pages").insert({user_id:ME.id,title:title}).select("id").single();
+    if(ins.error){toast("儲存失敗："+ins.error.message);return}
+    pageId=ins.data.id;
+  }else{
+    var up=await SDB.from("pages").update({title:title,updated_at:new Date().toISOString()}).eq("id",pageId);
+    if(up.error){toast("更新失敗："+up.error.message);return}
+  }
+  await SDB.from("blocks").delete().eq("page_id",pageId);
+  if(content){
+    var bi=await SDB.from("blocks").insert({page_id:pageId,content:content,order_num:0});
+    if(bi.error){toast("內容儲存失敗："+bi.error.message);return}
+  }
+  toast("已儲存 ✓");location.hash="#/page/"+pageId;
+}
+
+/* ---- 頁面視圖 ---- */
+async function viewPage(id){
+  if(!el("wrap"))buildShell();sidebarClose();
+  el("main").innerHTML='<div class="pad"><div class="empty">載入中…</div></div>';
+  var pr=await SDB.from("pages").select("*").eq("id",id).maybeSingle();
+  if(!pr.data){el("main").innerHTML='<div class="pad"><div class="card empty">搵唔到呢個頁面<br><a href="#/" style="color:#8b5cf6">← 返回首頁</a></div></div>';return}
+  var p=pr.data;
+  var trail=[],cur=p;
+  while(cur.parent_id&&trail.length<6){
+    var par=await SDB.from("pages").select("id,title,parent_id").eq("id",cur.parent_id).maybeSingle();
+    if(!par.data)break;
+    trail.unshift(par.data);cur=par.data;
+  }
+  var bl=await SDB.from("blocks").select("id,content").eq("page_id",id).order("order_num");
+  var ch=await SDB.from("pages").select("id,title").eq("parent_id",id);
+  var fv=await SDB.from("favorites").select("page_id").eq("page_id",id).maybeSingle();
+  var faved=fv.data?true:false;
+  var srcTag={incubator:"💡 孵化器",musgen:"🎵 生成器",journal:"🗓 日記"}[p.source]||"";
+  var html='<div class="pad" style="max-width:720px">';
+  if(trail.length>0){
+    html+='<div style="font-size:11px;color:#aaa;margin-bottom:2px">';
+    for(var t=0;t<trail.length;t++)html+='<a href="#/page/'+trail[t].id+'" style="color:#aaa;text-decoration:none">'+esc(trail[t].title)+"</a> / ";
+    html+='</div>';
+  }
+  html+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  html+='<h1 style="font-size:22px;margin:0">'+(p.icon||"📄")+" "+esc(p.title)+'</h1>';
+  html+=(srcTag?'<span class="chip" style="margin:0">'+srcTag+"</span>":"");
+  html+='<button class="star" id="pfav">'+(faved?"⭐":"☆")+'</button></div>';
+  html+='<div class="time" style="margin-top:2px">更新於 '+timeAgo(p.updated_at)+'</div>';
+  html+='<div class="card" style="margin-top:14px;padding:16px">';
+  var bd=bl.data||[];
+  if(bd.length===0){html+='<div class="empty">空白頁面。<a href="#/edit/'+id+'" style="color:#8b5cf6">開始編輯</a></div>'}
+  else{
+    var mdText=bd.map(function(x){return x.content}).join("\n\n");
+    var linked=mdText.replace(/\[\[(.*?)\]\]/g,function(m,t){return '<a href="#/search/'+encodeURIComponent(t)+'" class="md-link">[['+esc(t)+']]</a>'});
+    html+='<div class="md-body">'+marked.parse(linked)+'</div>';
+  }
+  html+='</div>';
+  html+='<div style="margin-top:10px;text-align:right">';
+  html+='<button onclick="location.hash=\'#/edit/'+id+'\'" style="font-size:13px;color:#8b5cf6;padding:6px 10px;border:1px solid #e5e3de;border-radius:8px;background:#fff">✏️ 編輯</button>';
+  var mk=p.title.indexOf("版本___")===0?"ver":p.title.indexOf("作品___")===0?"work":p.title.indexOf("音樂人___")===0?"mus":null;
+  if(mk)html+='<button onclick="MG_editFromWiki(\''+id+'\',\''+mk+'\')" style="font-size:13px;color:#6d28d9;padding:6px 10px;border:1px solid #c4b5fd;border-radius:8px;background:#fff;margin-left:6px">🎵 喺生成器編輯呢張卡</button>';
+  html+='</div>';
+  if(ch.data&&ch.data.length>0){
+    html+='<h2 class="sec" style="margin-top:20px">子頁面</h2>';
+    for(var c=0;c<ch.data.length;c++)html+='<a class="chip" href="#/page/'+ch.data[c].id+'">📄 '+esc(ch.data[c].title)+'</a>';
+  }
+  var bkRes=await SDB.from("blocks").select("content, page_id, pages(id,title)").ilike("content","%[["+p.title+"]]%");
+  var backlinks=(bkRes.data||[]).filter(function(b){return b.page_id!==id});
+  if(backlinks.length>0){
+    html+='<h2 class="sec" style="margin-top:24px">🔗 反向連結 ('+backlinks.length+')</h2>';
+    html+='<div class="card" style="padding:12px;background:#fcfcfc">';
+    for(var k=0;k<backlinks.length;k++){
+      var b=backlinks[k],src=b.pages;
+      if(!src)continue;
+      var ctx=b.content,idx=ctx.indexOf("[["+p.title+"]]");
+      if(idx>0)ctx="…"+ctx.substring(Math.max(0,idx-50),idx+p.title.length+52)+"…";
+      html+='<div class="backlink-item"><a href="#/page/'+src.id+'" style="font-weight:bold;color:#8b5cf6;text-decoration:none;display:block;margin-bottom:2px">'+esc(src.title)+'</a>';
+      html+='<div style="font-size:13px;color:#555;line-height:1.4">'+esc(ctx)+'</div></div>';
+    }
+    html+='</div>';
+  }
+  html+='</div>';
+  el("main").innerHTML=html;
+  el("pfav").onclick=function(){toggleFav(id)};
+}
+
+/* ---- 控制台 ---- */
+async function cnt(t){try{var r=await SDB.from(t).select("*",{count:"exact",head:true});return r.count==null?"–":r.count}catch(e){return"–"}}
+async function viewConsole(){
+  if(!el("wrap"))buildShell();sidebarClose();
+  el("main").innerHTML='<div class="pad"><div class="card empty" style="padding:30px">載入中…</div></div>';
+  var pc=await cnt("pages"),bc=await cnt("blocks"),ic=await cnt("ideas"),vc=await cnt("vocab");
+  var res=await SDB.from("pages").select("id,title,updated_at").order("updated_at",{ascending:false}).limit(200);
+  var pages=res.data||[];
+  var html='<div class="pad" style="max-width:720px">';
+  html+='<div style="margin-bottom:10px;font-size:15px;font-weight:bold">⚙️ 控制台</div>';
+  html+='<div style="margin-bottom:12px;font-size:13px;color:#666">📄 頁面 '+pc+' ・ 🧱 Blocks '+bc+' ・ 💡 想法 '+ic+' ・ 📚 詞庫 '+vc+'</div><div class="card">';
+  for(var i=0;i<pages.length;i++){var p=pages[i];
+    html+='<div class="rowitem"><a href="#/page/'+p.id+'" style="color:#6d28d9;text-decoration:none;flex:1">'+esc(p.title)+'</a>';
+    html+='<span class="time">'+timeAgo(p.updated_at)+'</span>';
+    html+='<button style="margin-left:8px;color:#c22;font-size:12px;padding:4px 8px;border:1px solid #fee2e2;background:#fff;border-radius:6px" data-del="'+p.id+'">刪除</button></div>';
+  }
+  html+='</div></div>';
+  el("main").innerHTML=html;
+  var delBtns=el("main").querySelectorAll("button[data-del]");
+  for(var j=0;j<delBtns.length;j++)delBtns[j].onclick=function(){
+    if(confirm("確定要刪除這個頁面嗎？此動作無法復原。"))deletePage(this.getAttribute("data-del"));
+  };
+}
+async function deletePage(id){
+  await SDB.from("favorites").delete().eq("page_id",id);
+  await SDB.from("pages").update({parent_id:null}).eq("parent_id",id);
+  var d1=await SDB.from("blocks").delete().eq("page_id",id);
+  var d2=await SDB.from("pages").delete().eq("id",id);
+  if(d1.error||d2.error){toast("刪除失敗："+(d1.error||d2.error).message);return}
+  toast("已刪除 ✓");viewConsole();
+}
+
+/* ---- 說明 ---- */
+function viewHelp(){
+  if(!el("wrap"))buildShell();sidebarClose();
+  var html='<div class="pad" style="max-width:720px"><div class="card" style="padding:20px">';
+  html+='<h2 style="font-size:17px;margin-bottom:10px">❓ 使用說明</h2><div style="font-size:14px;line-height:1.8;color:#444">';
+  html+='<p>・<b>快速建頁</b>：首頁搜索欄打名撳 Enter；打「音樂/莫扎特」會自動建父子頁。</p>';
+  html+='<p>・<b>[[連結]]</b>：內容入面打 [[頁名]]，自動出反向連結。</p>';
+  html+='<p>・<b>🧰 工具箱</b>：💡孵化器；🎵生成器（雙欄工作台、一鍵落釘、詞庫聯想、草稿、卡片摺疊、📥存入維基／📂從維基載入）。</p>';
+  html+='<p>・<b>🎵生成器貼士</b>：貼 YouTube link 自動抓標題作者並拆解填表；撳任何卡片標題＝單獨收／展該卡；「⤴ 全收／⤵ 全展」一鍵切換；撳時間格跳播；打秒數自動轉 mm:ss。</p>';
+  html+='<p>・<b>📋 總覽</b>：一版睇晒所有已填欄位，✏️ 直達該欄；可存多張草稿；維基入面的版本/作品/音樂人卡，打開撳「🎵 喺生成器編輯呢張卡」就返到表單改，改完📥存返同一頁。</p>';
+  html+='</div></div></div>';
+  el("main").innerHTML=html;
+}
+
+/* ---- 知識圖譜 ---- */
+var G_NET=null,G_NODES=[];
+async function viewGraph(){
+  if(!el("wrap"))buildShell();sidebarClose();
+  el("main").innerHTML='<div class="pad"><div style="display:flex;gap:8px;margin-bottom:8px"><input id="gq" placeholder="聚焦：輸入頁名…"><span class="time" id="gcount" style="align-self:center"></span></div><div class="card" style="padding:8px"><div id="network-main"></div></div><div class="time" style="margin-top:6px">🔵 頁面 ・ 🟣 日記 ・ 🟠 想法　紫線=[[連結]]　灰線=父子　點節點開頁</div></div>';
+  var pr=await SDB.from("pages").select("id,title,parent_id,source,is_journal").limit(500);
+  var pages=pr.data||[];
+  var br=await SDB.from("blocks").select("page_id,content").limit(2000);
+  var nodes=[],edges=[],byId={},byTitle={};
+  pages.forEach(function(p){
+    byId[p.id]=p;byTitle[p.title]=p;
+    nodes.push({id:p.id,label:(p.title||"").slice(0,18),color:p.is_journal?"#c4b5fd":(p.source==="incubator"?"#fdba74":"#bfdbfe"),shape:"dot",size:10,title:p.title});
+  });
+  pages.forEach(function(p){if(p.parent_id&&byId[p.parent_id])edges.push({from:p.parent_id,to:p.id,color:"#ddd"})});
+  (br.data||[]).forEach(function(b){
+    if(!b.content)return;
+    var m=b.content.match(/\[\[([^\]]+)\]\]/g)||[];
+    m.forEach(function(w){var t=w.slice(2,-2);var tg=byTitle[t];
+      if(tg&&tg.id!==b.page_id)edges.push({from:b.page_id,to:tg.id,color:"#8b5cf6"})});
+  });
+  if(G_NET){try{G_NET.destroy()}catch(e){}G_NET=null}
+  G_NODES=nodes;
+  G_NET=new vis.Network(el("network-main"),{nodes:new vis.DataSet(nodes),edges:new vis.DataSet(edges)},{interaction:{hover:true,dragView:true,zoomView:true,dragNodes:true},physics:{stabilization:true},nodes:{font:{size:12}},edges:{width:1}});
+  el("gcount").textContent=nodes.length+" 節點 / "+edges.length+" 連結";
+  G_NET.on("click",function(ps){if(ps.nodes.length)location.hash="#/page/"+ps.nodes[0]});
+  el("gq").addEventListener("input",function(){
+    var q=this.value.trim().toLowerCase();if(!q)return;
+    var hit=G_NODES.find(function(n){return(n.title||"").toLowerCase().indexOf(q)>=0});
+    if(hit)G_NET.focus(hit.id,{scale:1.2,animation:true});
+  });
+}
+
+/* ═══════════ 想法孵化器 ═══════════ */
+var INC_TPL=["如果 `[A]` 在你的專業裡，對應的具體動作是什麼？","如果要把 `[A]` 從零開始建構，第一步會是什麼？","`[A]` 有沒有一個臨界點，超過它之後性質就變了？","如果 `[A]` 完全消失，你正在描述的東西還成立嗎？","`[A]` 是你主動製造的，還是它自己產生的？","`[A]` 放大到極致和縮小到極致，分別是什麼樣子？","如果用三個形容詞描述 `[A]` 的本質，你會選哪三個？","`[A]` 在什麼情況下會變成它的反面？","`[A]` 的速度和方向，哪一個更重要？","如果把 `[A]` 教給一個 10 歲的孩子，你會用什麼比喻？","如果 `[A]` 對應到 `[B]`，那 `[A]` 是指具體感受，還是抽象結構？","一定是 `[A]` 造成了 `[B]` 嗎？會不會是 `[B]` 迫使了 `[A]`？","`[A]` 有『質量』和『距離』，在 `[B]` 裡，誰是質量？誰是距離？","如果 `[A]` 會造成加速度，這在 `[B]` 裡表現在節奏上還是力度上？","如果 `[A]` 強度無限大，`[B]` 會是完全的不和諧，還是純粹的共鳴？","有沒有哪種極端情況下，`[A]` 反而會失去對 `[B]` 的作用力？","如果要把 `[A]` 與 `[B]` 的關係教給初學者，你會用什麼動作讓他感受到？","如果 `[A]` 聽起來有一種顏色，`[B]` 會是什麼顏色？","如果把 `[A]` 的感覺轉換成觸覺，那是摩擦力變大，還是重量變重？","如果把 `[A]` 抽掉時間維度，`[B]` 還成立嗎？","`[A]` 可以拆成哪兩個更小的元素？哪一個對 `[B]` 更直接？","會不會有第三個隱藏因素同時影響了 `[A]` 和 `[B]`？","如果把 `[B]` 放慢 100 倍，`[A]` 會變成什麼狀態？","如果一秒內完成 `[B]`，`[A]` 還存在嗎？","如果是 `[B]` 主動吸引你的 `[A]`，而不是你主動製造 `[A]`，執行上會是什麼感覺？","`[A]`、`[B]`、`[C]` 三者之間，誰是因，誰是果，誰是旁觀者？","如果拿掉 `[C]`，`[A]` 和 `[B]` 之間的關係會怎麼變？","`[A]` 到 `[B]` 的距離，跟 `[B]` 到 `[C]` 的距離，哪個更近？","`[A]`、`[B]`、`[C]` 如果是一個三角形，哪一個角是鈍角？","如果這三個是同一件事的三個面，那本體是什麼？"];
+var INC_USED=[],INC_ALL=[],INC_MULTI=false,INC_SEL=new Set(),INC_NET=null,INC_TIMER=null;
+async function viewIncubator(){
+  if(!el("wrap"))buildShell();sidebarClose();
+  var html='<div class="pad" style="max-width:720px">';
+  html+='<div style="font-size:15px;font-weight:bold;margin-bottom:10px">💡 想法孵化器</div>';
+  html+='<div class="drawer2" id="dq" style="max-height:300px"><div class="drawer2-hd" onclick="incToggle(\'dq\')"><span>💡 蘇格拉底提問</span><span>▼</span></div><div class="drawer2-bd"><div class="question-box" id="incQ">輸入標籤後，在這裡生成提問...</div><button class="gbtn" style="width:100%" onclick="incGenQ()">🔄 換一個問題</button></div></div>';
+  html+='<div class="drawer2" id="dn" style="max-height:250px"><div class="drawer2-hd" onclick="incToggle(\'dn\')"><span>📎 舊筆記聯想</span><span>▼</span></div><div class="drawer2-bd" id="incNotes" style="min-height:50px"><div style="color:#999;font-size:13px">開始打字，停頓3秒後會自動搜尋舊筆記...</div></div></div>';
+  html+='<div class="drawer2" id="di"><div class="drawer2-hd" onclick="incToggle(\'di\')"><span>✍️ 寫下想法</span><span>▼</span></div><div class="drawer2-bd"><textarea id="incC" placeholder="寫下你的跨領域聯想..." style="min-height:160px;resize:vertical" oninput="incTyping()"></textarea><div style="display:flex;gap:8px;margin-top:10px"><input id="incT" placeholder="輸入標籤(逗號分隔), 如: 引力,和聲" style="flex:1" oninput="incGenQ()"><button class="btn" onclick="incSave()">存檔</button></div></div></div>';
+  html+='<h2 class="sec" style="margin-top:20px">🌌 想法星圖</h2><div id="network-container"></div>';
+  html+='<h2 class="sec" style="margin-top:20px">🗂 想法管理</h2>';
+  html+='<div style="display:flex;gap:8px;margin-bottom:8px"><input id="incSearch" placeholder="搜尋想法內容或標籤..." style="flex:1"><button class="gbtn" id="incMultiBtn" onclick="incMulti()">多選</button></div>';
+  html+='<div id="incList"></div></div>';
+  html+='<div class="batch-del-bar" id="incDelBar" onclick="incBatchDel()">刪除選取的 (<span id="incSelN">0</span>) 筆</div>';
+  el("main").innerHTML=html;
+  var r=await SDB.from("ideas").select("*").order("created_at",{ascending:false});
+  if(r.error){toast("讀取失敗："+r.error.message);return}
+  INC_ALL=r.data||[];
+  incDraw();incRender();
+}
+function incToggle(id){el(id).classList.toggle("collapsed")}
+function incGenQ(){
+  var tags=el("incT").value.split(",").map(function(t){return t.trim()}).filter(function(t){return t.length>0});
+  if(tags.length===0){el("incQ").innerText="請先輸入標籤...";return}
+  var avail=[],i;
+  if(tags.length===1)for(i=0;i<10;i++)avail.push(i);
+  else if(tags.length===2)for(i=10;i<15;i++)avail.push(i);
+  else{for(i=25;i<30;i++)avail.push(i);for(i=10;i<15;i++)avail.push(i)}
+  var usable=avail.filter(function(x){return INC_USED.indexOf(x)<0});
+  if(usable.length===0){INC_USED=INC_USED.filter(function(x){return avail.indexOf(x)>=0});usable=avail}
+  var ri=usable[Math.floor(Math.random()*usable.length)];
+  INC_USED.push(ri);
+  var q=INC_TPL[ri];
+  for(var k=0;k<tags.length&&k<3;k++)q=q.split("`["+String.fromCharCode(65+k)+"]`").join("<b>"+esc(tags[k])+"</b>");
+  el("incQ").innerHTML=q;
+}
+function incTyping(){
+  clearTimeout(INC_TIMER);
+  el("incNotes").innerHTML='<div style="color:#999;font-size:13px">搜尋中...</div>';
+  INC_TIMER=setTimeout(function(){
+    var t=el("incC").value;
+    if(t.trim().length<2){el("incNotes").innerHTML='<div style="color:#999;font-size:13px">開始打字，停頓3秒後會自動搜尋舊筆記...</div>';return}
+    incSearchNotes(t);
+  },3000);
+}
+function incSearchNotes(text){
+  var kws=text.split(/[\s,，。、]+/).filter(function(k){return k.length>1});
+  var matched=[];
+  INC_ALL.forEach(function(idea){
+    var ok=false;
+    kws.forEach(function(kw){if((idea.content&&idea.content.indexOf(kw)>=0)||(idea.tags&&idea.tags.indexOf(kw)>=0))ok=true});
+    if(ok&&!matched.find(function(n){return n.id===idea.id}))matched.push(idea);
+  });
+  var box=el("incNotes");
+  if(matched.length===0){box.innerHTML='<div style="color:#999;font-size:13px">沒有找到相關的舊筆記。</div>';return}
+  var h='<div style="font-size:12px;color:#888;margin-bottom:6px">搵到 '+matched.length+' 條相關：</div>';
+  matched.slice(0,10).forEach(function(n,i){h+='<div class="note-item" data-i="'+i+'">'+esc(n.content.substring(0,60))+"...</div>"});
+  box.innerHTML=h;
+  var items=box.querySelectorAll(".note-item");
+  for(var j=0;j<items.length;j++)items[j].onclick=function(){alert(matched[+this.getAttribute("data-i")].content)};
+}
+async function incSave(){
+  var c=el("incC").value.trim(),t=el("incT").value.trim(),q=el("incQ").innerText;
+  if(!c){toast("想法內容不能為空");return}
+  var ins=await SDB.from("ideas").insert([{user_id:ME.id,content:c,tags:t,generated_question:q}]).select();
+  if(ins.error){toast("存檔失敗："+ins.error.message);return}
+  toast("已存檔 ✓");
+  el("incC").value="";el("incT").value="";el("incQ").innerText="輸入標籤後，在這裡生成提問...";INC_USED=[];
+  if(ins.data&&ins.data.length>0){INC_ALL.unshift(ins.data[0]);incDraw();incRender()}
+}
+async function incToWiki(id){
+  var idea=INC_ALL.find(function(x){return x.id===id});
+  if(!idea)return;
+  var d=new Date(idea.created_at);
+  var title="💡 "+(d.getMonth()+1)+"月"+d.getDate()+"日 "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);
+  var md="- 想法\n  內容:: "+idea.content+"\n"+(idea.tags?"  標籤:: "+idea.tags.split(",").map(function(x){return"#"+x.trim()}).join(" ")+"\n":"")+(idea.generated_question?"  靈感提問:: "+idea.generated_question+"\n":"");
+  await saveToWiki(title,md,"incubator");
+}
+function incDraw(){
+  var container=el("network-container");
+  if(!container||typeof vis==="undefined")return;
+  if(INC_NET){try{INC_NET.destroy()}catch(e){}INC_NET=null}
+  var nodes=[],edges=[],tagNodes={};
+  INC_ALL.forEach(function(idea){
+    nodes.push({id:idea.id,label:idea.content.substring(0,10)+"...",shape:"box",color:"#a8e6cf",title:idea.content});
+    if(idea.tags)idea.tags.split(",").map(function(t){return t.trim()}).filter(function(t){return t}).forEach(function(tag){
+      if(!tagNodes[tag]){tagNodes[tag]="tag-"+tag;nodes.push({id:tagNodes[tag],label:tag,shape:"circle",color:"#ffd3b6"})}
+      edges.push({from:idea.id,to:tagNodes[tag]});
+    });
+  });
+  INC_NET=new vis.Network(container,{nodes:new vis.DataSet(nodes),edges:new vis.DataSet(edges)},{interaction:{zoomView:true,dragView:true,dragNodes:true,hover:true},physics:{stabilization:false,barnesHut:{gravitationalConstant:-2000,springLength:100}},nodes:{font:{size:12}},edges:{width:1,color:"#ccc"}});
+  INC_NET.on("click",function(ps){if(ps.nodes.length&&String(ps.nodes[0]).indexOf("tag-")!==0){var it=INC_ALL.find(function(x){return x.id===ps.nodes[0]});if(it)alert(it.content)}});
+}
+function incRender(){
+  var q=(el("incSearch")?el("incSearch").value:"").trim();
+  var list=el("incList");if(!list)return;
+  var filtered=INC_ALL.filter(function(idea){
+    if(!q)return true;
+    return(idea.content&&idea.content.indexOf(q)>=0)||(idea.tags&&idea.tags.indexOf(q)>=0)||(idea.generated_question&&idea.generated_question.indexOf(q)>=0);
+  });
+  if(filtered.length===0){list.innerHTML='<div style="text-align:center;color:#999;padding:20px">沒有符合的想法。</div>';return}
+  var h="";
+  filtered.forEach(function(idea){
+    h+='<div class="manage-card'+(INC_SEL.has(idea.id)?" selected":"")+'" data-id="'+idea.id+'">';
+    h+='<h4>'+new Date(idea.created_at).toLocaleString()+'</h4><p>'+esc(idea.content)+'</p>';
+    if(idea.tags)h+='<div class="tags">標籤: '+esc(idea.tags)+'</div>';
+    h+='<div style="margin-top:8px;display:flex;gap:6px;align-items:center">';
+    h+='<button class="gbtn" style="color:#8b5cf6;border-color:#ddd6fe" data-w="'+idea.id+'">📥 存入維基</button>';
+    if(INC_MULTI)h+='<input type="checkbox" style="margin-left:auto;width:20px;height:20px" '+(INC_SEL.has(idea.id)?"checked":"")+' data-c="'+idea.id+'">';
+    h+='</div></div>';
+  });
+  list.innerHTML=h;
+  var cards=list.querySelectorAll(".manage-card");
+  for(var i=0;i<cards.length;i++)cards[i].onclick=function(e){
+    if(e.target.type==="checkbox")return;
+    var id=this.getAttribute("data-id");
+    if(INC_MULTI)incSel(id);
+    else{var idea=INC_ALL.find(function(x){return x.id===id});if(idea)alert(idea.content)}
+  };
+  var ws=list.querySelectorAll("button[data-w]");
+  for(var j=0;j<ws.length;j++)ws[j].onclick=function(e){e.stopPropagation();incToWiki(this.getAttribute("data-w"))};
+  var cs=list.querySelectorAll("input[data-c]");
+  for(var k=0;k<cs.length;k++)cs[k].onclick=function(e){e.stopPropagation();incSel(this.getAttribute("data-c"))};
+  incUpdBar();
+}
+function incMulti(){
+  INC_MULTI=!INC_MULTI;INC_SEL.clear();
+  var b=el("incMultiBtn");
+  b.innerText=INC_MULTI?"取消多選":"多選";
+  b.style.background=INC_MULTI?"#ef4444":"";b.style.color=INC_MULTI?"#fff":"";b.style.borderColor=INC_MULTI?"#ef4444":"#ccc";
+  incRender();
+}
+function incSel(id){if(INC_SEL.has(id))INC_SEL.delete(id);else INC_SEL.add(id);incRender()}
+function incUpdBar(){
+  var bar=el("incDelBar");if(!bar)return;
+  el("incSelN").innerText=INC_SEL.size;
+  if(INC_SEL.size>0&&INC_MULTI)bar.classList.add("show");else bar.classList.remove("show");
+}
+async function incBatchDel(){
+  if(!confirm("確定要刪除選取的 "+INC_SEL.size+" 筆想法嗎？"))return;
+  var d=await SDB.from("ideas").delete().in("id",Array.from(INC_SEL));
+  if(d.error){toast("刪除失敗："+d.error.message);return}
+  INC_ALL=INC_ALL.filter(function(x){return!INC_SEL.has(x.id)});
+  INC_SEL.clear();INC_MULTI=false;
+  incDraw();incRender();toast("已刪除 ✓");
+}
+window.incToggle=incToggle;window.incGenQ=incGenQ;window.incTyping=incTyping;window.incSave=incSave;window.incMulti=incMulti;window.incSel=incSel;window.incBatchDel=incBatchDel;window.incToWiki=incToWiki;
+
+/* ═══════════ 音樂記錄生成器 v9 ═══════════ */
+var MG_BUILTIN=[["comp","巴哈","Bach",""],["comp","貝多芬","Beethoven",""],["comp","莫扎特","Mozart",""],["comp","蕭邦","Chopin",""]];
+var MG_CATS={comp:"作曲家",inst:"樂器",role:"角色",form:"曲式",tempo:"速度",dyn:"力度",expr:"表情",tech:"學習技術"};
+var MG_ERAS=["巴洛克","古典","浪漫","印象派","現代","當代"];
+var MG_MTYPES=["獨奏家","指揮","室內樂","歌唱家","樂團","合唱團","伴奏","學者/教育家"];
+function MG(id){return document.getElementById(id)}
+var MG_SEEDS=[],MG_CLOUD=[],MG_SEEDED=false;
+var MG_perf=[],MG_roles=[],MG_inst=[],MG_notes=[],MG_movs=[],MG_likes=[],MG_dis=[],MG_chg=[],MG_exp=[],MG_wsrc=[],MG_msrc=[],MG_wera=[],MG_mtype=[],MG_S={},MG_LF={type:null,i:0},MG_VCAT="",MG_yt=null,MG_lastAuto="";
+function MG_local(){try{return JSON.parse(localStorage.getItem("musvocab")||"[]")}catch(e){return[]}}
+function MG_V(){
+  var all=MG_BUILTIN.concat(MG_SEEDS,MG_CLOUD,MG_local()),seen={},out=[];
+  all.forEach(function(v){var k=v[0]+"|"+v[1];if(v[1]&&!seen[k]){seen[k]=1;out.push(v)}});
+  return out;
+}
+function MG_has(c){var f=MG_V();for(var i=0;i<f.length;i++)if(f[i][0]===c)return true;return false}
+function MG_pool(cs){var o=[];MG_V().forEach(function(v){if(cs.indexOf(v[0])>=0&&o.indexOf(v[1])<0)o.push(v[1])});return o}
+function MG_extCats(list){list.forEach(function(v){if(v[0]&&!MG_CATS[v[0]])MG_CATS[v[0]]=v[0]})}
+function MG_toast(m){var t=MG("mgTag");if(!t)return;t.textContent=m;clearTimeout(MG_toast._t);MG_toast._t=setTimeout(function(){if(t.textContent===m)t.textContent=""},2600)}
+function MG_show(t){["ver","work","mus","voc","ov"].forEach(function(x){var p=MG("pg-"+x),tb=MG("tb-"+x);if(p)p.classList.toggle("show",x===t);if(tb)tb.classList.toggle("on",x===t)});MG_acHide();if(t!=="ver"&&el("mgMini"))el("mgMini").style.display="none";if(t==="ov")MG_renderOv()}
+
+/* ---- 欄位元數據（總覽用） ---- */
+var MG_META=[
+ {tab:"ver",name:"💿 版本卡",secs:[
+  ["① 來源",[["url","連結"],["platform","平台"],["dur","時長"]]],
+  ["② 錄音",[["date","演出日期"],["venue","樂團/場地"],["label","Label"]]],
+  ["③ 作品",[["verName","版本名"],["workName","作品名"],["composerCus","作曲家"],["movs","樂章"],["vcomp","對比版本"]]],
+  ["⑤ 總結",[["f_tempo","速度印象"],["f_timbre","音色"],["f_style","風格"],["verdict","一句話"],["todo","待補"]]]]},
+ {tab:"work",name:"🎼 作品卡",secs:[
+  ["基本",[["w_name","作品名"],["w_nick","暱稱"],["w_compCus","作曲家"],["w_cat","編號"],["w_key","調性"],["w_scoring","編制"],["w_edition","樂譜版本"],["w_year","年份"]]],
+  ["深入",[["w_background","創作背景"],["w_dedication","題獻/首演"],["w_similar","同類作品"]]],
+  ["🎯 目標",[["goal_narrative","敘事"],["goal_tempo","速度"],["goal_timbre","音色"],["goal_style","風格"],["goal_structure","結構"]]]]},
+ {tab:"mus",name:"🎻 音樂人卡",secs:[
+  ["基本",[["m_name","名稱"],["m_alias","別名"],["m_styleera","Style-Era"],["m_from","活躍由"],["m_to","迄"],["m_oneline","一句話"]]]]}
+];
+function MG_focusField(id,tab){
+  MG_show(tab);
+  setTimeout(function(){
+    var e=MG(id);if(!e)return;
+    e.scrollIntoView({behavior:"smooth",block:"center"});
+    e.style.outline="2px solid #8b5cf6";
+    setTimeout(function(){e.style.outline=""},1800);
+    setTimeout(function(){try{e.focus({preventScroll:true})}catch(x){e.focus()}},450);
+  },60);
+}
+function MG_renderOv(){
+  var box=MG("ovBody");if(!box)return;
+  var html="",total=0,filled=0;
+  MG_META.forEach(function(sec){
+    var secHtml="";
+    sec.secs.forEach(function(ss){
+      var rows="";
+      ss[1].forEach(function(it){
+        total++;
+        var e=MG(it[0]);if(!e)return;
+        var v=(e.value||"").trim();
+        if(v){filled++;rows+='<div class="ovrow"><span class="ovl">'+it[1]+'</span><span class="ovv">'+esc(v)+'</span><button onclick="MG_focusField(\''+it[0]+'\',\''+sec.tab+'\')">✏️</button></div>'}
+      });
+      if(rows)secHtml+='<div class="traylab" style="padding:6px 12px 0">'+ss[0]+'</div>'+rows;
+    });
+    html+='<div class="card" style="margin-bottom:12px"><div class="cardhd">'+sec.name+'</div>'+(secHtml||'<div class="empty">（未填任何欄位）</div>')+'</div>';
+  });
+  var extras=[];
+  var nn=MG_notes.filter(function(n){return!n.del&&(n.t||n.txt)}).length;
+  var ln=MG_likes.filter(function(r){return r.x}).length;
+  if(MG_perf.length)extras.push("演奏者×"+MG_perf.length);
+  if(nn)extras.push("逐段筆記×"+nn);
+  if(ln)extras.push("最鍾意×"+ln);
+  if(extras.length)html='<div class="time" style="margin-bottom:8px">'+extras.join(" ・ ")+'</div>'+html;
+  html='<div class="time" style="margin-bottom:8px">已填 '+filled+' / '+total+' 個欄位</div>'+html;
+  html+='<div class="card"><div class="cardhd">💾 草稿</div><div class="cardbd">';
+  html+='<div style="display:flex;gap:6px"><input id="draftName" placeholder="草稿名（如：富特文格勒 1951）" style="flex:1"><button class="gbtn pri" onclick="MG_draftSave()">儲存為新草稿</button></div>';
+  html+='<div id="draftList"></div>';
+  html+='<div style="display:flex;gap:6px;margin-top:10px"><button class="gbtn" style="flex:1" onclick="MG_wikiLoadUI()">📂 從維基載入版本卡</button></div><div id="wikiPick"></div>';
+  html+='</div></div>';
+  box.innerHTML=html;
+  MG_decorateHeaders();
+  MG_renderDrafts();
+}
+/* ---- 草稿系統 ---- */
+function MG_snap(){
+  var f={};["platform","dur","date","venue","label","verName","workName","composerSel","composerCus","movs","vcomp","verdict","todo","f_tempo","f_timbre","f_style","w_name","w_nick","w_comp","w_compCus","w_cat","w_key","w_scoring","w_edition","w_year","w_background","w_dedication","w_similar","w_similarnote","goal_narrative","goal_tempo","goal_timbre","goal_style","goal_structure","m_name","m_alias","m_styleera","m_from","m_to","m_oneline"].forEach(function(id){f[id]=MG(id).value});
+  f.url=MG("url").value;
+  return{f:f,perf:MG_perf.slice(),mroles:MG_roles.slice(),minst:MG_inst.slice(),notes:JSON.parse(JSON.stringify(MG_notes)),movs:JSON.parse(JSON.stringify(MG_movs)),likes:JSON.parse(JSON.stringify(MG_likes)),dislikes:JSON.parse(JSON.stringify(MG_dis)),changes:JSON.parse(JSON.stringify(MG_chg)),exps:JSON.parse(JSON.stringify(MG_exp)),wsrc:JSON.parse(JSON.stringify(MG_wsrc)),msrc:JSON.parse(JSON.stringify(MG_msrc)),wera:MG_wera.slice(),mtype:MG_mtype.slice(),s:JSON.parse(JSON.stringify(MG_S))};
+}
+function MG_save(){try{localStorage.setItem("musgen5",JSON.stringify(MG_snap()))}catch(e){}}
+function MG_drafts(){try{return JSON.parse(localStorage.getItem("musgen_drafts")||"[]")}catch(e){return[]}}
+function MG_draftSave(){
+  var name=(MG("draftName").value||"").trim()||("草稿 "+new Date().toLocaleString("zh-HK"));
+  var ds=MG_drafts();
+  ds.unshift({name:name,ts:Date.now(),data:MG_snap()});
+  if(ds.length>20)ds=ds.slice(0,20);
+  try{localStorage.setItem("musgen_drafts",JSON.stringify(ds))}catch(e){}
+  MG("draftName").value="";MG_renderDrafts();MG_toast("草稿已儲 ✓");
+}
+function MG_renderDrafts(){
+  var box=MG("draftList");if(!box)return;
+  var ds=MG_drafts();
+  if(ds.length===0){box.innerHTML='<div class="empty">仲未有草稿——填緊嘅嘢可以隨時存一份</div>';return}
+  var h="";
+  ds.forEach(function(d,i){h+='<div class="draftitem"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>'+esc(d.name)+'</b> <span class="time">'+new Date(d.ts).toLocaleDateString("zh-HK")+'</span></span><button class="gbtn" onclick="MG_draftLoad('+i+')">載入</button><button class="gbtn" style="color:#a33" onclick="MG_draftDel('+i+')">✕</button></div>'});
+  box.innerHTML=h;
+}
+function MG_draftLoad(i){
+  var d=MG_drafts()[i];if(!d)return;
+  if(!confirm("載入「"+d.name+"」會覆蓋而家填緊嘅嘢，確定？"))return;
+  MG_applyState(d.data);MG_toast("已載入「"+d.name+"」✓");MG_renderOv();
+}
+function MG_draftDel(i){
+  var ds=MG_drafts();ds.splice(i,1);
+  try{localStorage.setItem("musgen_drafts",JSON.stringify(ds))}catch(e){}
+  MG_renderDrafts();
+}
+function MG_applyState(d){
+  if(!d)return;
+  var f=d.f||{};
+  Object.keys(f).forEach(function(id){if(MG(id))MG(id).value=f[id]});
+  MG_perf=d.perf||[];MG_drawList("perfChips",MG_perf);
+  MG_roles=d.mroles||[];MG_drawList("r_chips",MG_roles);
+  MG_inst=d.minst||[];MG_drawList("m_chips",MG_inst);
+  MG_notes=(d.notes&&d.notes.length)?d.notes:[{t:"",txt:""}];MG_redrawNotes();
+  MG_movs=(d.movs&&d.movs.length)?d.movs:[{l:"I.",txt:""}];MG_redrawMovs();
+  MG_likes=d.likes||[];MG_drawRows("likeRows",MG_likes,"邊段？");
+  MG_dis=d.dislikes||[];MG_drawRows("dislikeRows",MG_dis,"邊段？");
+  MG_chg=d.changes||[];MG_drawRows("changeRows",MG_chg,"改乜？");
+  MG_exp=d.exps||[];MG_drawRows("expRows",MG_exp,"試乜？");
+  MG_wsrc=d.wsrc||[];MG_drawSrc("wsrcRows",MG_wsrc);
+  MG_msrc=d.msrc||[];MG_drawSrc("msrcRows",MG_msrc);
+  MG_wera=d.wera||[];MG_mtype=d.mtype||[];
+  MG_toggle("eraChips",MG_wera,MG_has("時期")?MG_pool(["時期","樂派"]):MG_ERAS);
+  MG_toggle("mtypeChips",MG_mtype,MG_MTYPES);
+  MG_S=d.s||{};
+  ["srcSeg","rangeSeg","natSeg","stSeg","rtSeg"].forEach(function(k){
+    if(MG(k))Array.prototype.forEach.call(MG(k).children,function(b){b.classList.toggle("on",b.textContent===MG_S[k])});
+  });
+  MG_autoDetect();
+}
+function MG_normParsed(p){
+  p=p||{};
+  return{f:p.f||{},s:p.S||{},perf:p.perf||[],mroles:p.mroles||[],minst:p.minst||[],notes:p.notes||[],movs:p.movs||[],likes:p.likes||[],dislikes:p.dis||[],changes:p.chg||[],exps:p.exp||[],wera:p.wera||[],mtype:p.mtype||[],wsrc:p.wsrc||[],msrc:p.msrc||[]};
+}
+/* ---- 從維基載入 ---- */
+async function MG_wikiLoadUI(){
+  var box=MG("wikiPick");if(!box)return;
+  box.innerHTML='<div class="empty">載入中…</div>';
+  var r=await SDB.from("pages").select("id,title").limit(500);
+  var list=(r.data||[]).filter(function(p){return p.title.indexOf("版本___")===0});
+  if(list.length===0){box.innerHTML='<div class="empty">維基入面仲未有「版本___」頁——先喺版本卡撳📥存入維基</div>';return}
+  var h='<div class="traylab" style="margin-top:10px">揀一張卡載入：</div>';
+  list.forEach(function(p){h+='<button class="gbtn" style="margin:3px 4px 3px 0" data-pid="'+p.id+'">'+esc(p.title)+'</button>'});
+  box.innerHTML=h;
+  var btns=box.querySelectorAll("button[data-pid]");
+  for(var i=0;i<btns.length;i++)btns[i].onclick=async function(){
+    var pid=this.getAttribute("data-pid");
+    var br=await SDB.from("blocks").select("content").eq("page_id",pid).order("order_num");
+    var txt=(br.data||[]).map(function(x){return x.content}).join("\n\n");
+    if(!txt){MG_toast("呢頁冇內容");return}
+    if(!confirm("載入呢張卡會覆蓋版本表單，確定？"))return;
+    MG_applyState(MG_normParsed(MG_parseVer(txt)));
+    MG_show("ver");MG_toast("已從維基載入 ✓");
+  };
+}
+function MG_parseVer(txt){
+  var out={f:{},S:{},perf:[],notes:[],likes:[],dis:[],chg:[],exp:[],wera:[],mtype:[],mroles:[],minst:[],wsrc:[],msrc:[],movs:[{l:"I.",txt:""}]};
+  var map={"平台":"platform","時長":"dur","演出日期":"date","樂團/場地":"venue","Label":"label","速度印象":"f_tempo","音色取向":"f_timbre","風格取向":"f_style","樂章":"movs","一句話總評":"verdict","待補":"todo"};
+  var sec="";
+  txt.split("\n").forEach(function(raw){
+    if(raw.indexOf("逐段筆記")>=0){sec="notes";return}
+    if(raw.indexOf("⑤ 總結")>=0){sec="sum";return}
+    var t=raw.trim();
+    if(!t)return;
+    if(sec==="notes"){
+      var m=t.match(/^(?:(\d+:\d{1,2})\s+)?(.*)$/);
+      if(m&&(m[1]||m[2]))out.notes.push({t:m[1]||"",txt:(m[2]||"").replace(/\s*\[跳轉\]\(.*?\)/,"")});
+      return;
+    }
+    if(sec==="sum"){
+      if(t.indexOf("待補：")===0){out.f.todo=t.slice(3);return}
+      var em=t.match(/^(✅|⛔|✍️|🧪)\s*(.*)$/);
+      if(em){
+        if(em[1]==="✅")out.likes.push({x:em[2]});
+        else if(em[1]==="⛔")out.dis.push({x:em[2]});
+        else if(em[1]==="✍️")out.chg.push({x:em[2]});
+        else out.exp.push({x:em[2]});
+      }
+      return;
+    }
+    var pm=t.match(/^([^:：]+)::\s*(.*)$/);
+    if(!pm)return;
+    var k=pm[1].trim(),v=pm[2].trim();
+    if(!v||k==="type"||k==="記錄日期")return;
+    if(k==="狀態"){out.S.stSeg=v;return}
+    if(k==="片源"){out.S.srcSeg=v;return}
+    if(k==="性質"){out.S.natSeg=v;return}
+    if(k==="評分"){out.S.rtSeg=v;return}
+    if(k==="連結"){out.f.url=v;return}
+    if(k==="作品"){out.f.workName=v.replace(/\[\[|\]\]/g,"").replace(/^作品___/,"");return}
+    if(k==="作曲家"){out.f.composerCus=v.replace(/\[\[|\]\]/g,"");return}
+    if(k==="演奏者"){v.replace(/\[\[音樂人___([^\]]+)\]\]/g,function(m2,n2){out.perf.push(n2);return""});return}
+    if(k==="對比版本"){out.f.vcomp=v.replace(/\[\[|\]\]/g,"").replace(/^版本___/,"");return}
+    if(k==="待補"){out.f.todo=v;return}
+    if(map[k])out.f[map[k]]=v;
+  });
+  return out;
+}
+function MG_parseWork(txt){
+  var out={f:{},S:{},perf:[],notes:[],likes:[],dis:[],chg:[],exp:[],wera:[],mtype:[],mroles:[],minst:[],wsrc:[],msrc:[],movs:[]};
+  var map={"暱稱":"w_nick","目錄編號":"w_cat","調性":"w_key","編制":"w_scoring","樂譜版本":"w_edition","創作年份":"w_year","創作背景":"w_background","題獻/首演":"w_dedication"};
+  var sec="";
+  txt.split("\n").forEach(function(raw){
+    var t=raw.trim();if(!t)return;
+    if(t.indexOf("理想版本目標")>=0){sec="goal";return}
+    if(t.indexOf("樂章明細")>=0){sec="mov";return}
+    var pm=t.match(/^([^:：]+)::\s*(.*)$/);
+    if(pm){
+      var k=pm[1].trim(),v=pm[2].trim();
+      if(!v||k==="type"||k==="記錄日期")return;
+      if(k==="作曲家"){out.f.w_compCus=v.replace(/\[\[|\]\]/g,"");return}
+      if(k==="時期/樂派"){out.wera=v.split(/,\s*/).filter(Boolean);return}
+      if(k==="同類作品"){var m2=v.match(/\[\[作品___([^\]]+)\]\](?:\s*—\s*(.*))?/);
+        if(m2){out.f.w_similar=m2[1];if(m2[2])out.f.w_similarnote=m2[2]}else out.f.w_similar=v;return}
+      if(k==="資料來源"){var sp=v.split(/\s+—\s+/);out.wsrc.push({d:sp[0]||"",u:sp[1]||""});return}
+      if(map[k])out.f[map[k]]=v;
+      return;
+    }
+    if(sec==="goal"){
+      var gm=t.match(/^(敘事|速度|音色|風格|結構焦點)[:：]\s*(.*)$/);
+      if(gm)out.f[{敘事:"goal_narrative",速度:"goal_tempo",音色:"goal_timbre",風格:"goal_style",結構焦點:"goal_structure"}[gm[1]]]=gm[2];
+      return;
+    }
+    if(sec==="mov"){
+      var mm=t.match(/^([IVX]+\.)\s*(.*)$/);
+      if(mm)out.movs.push({l:mm[1],txt:mm[2]||""});
+    }
+  });
+  if(out.movs.length===0)out.movs=[{l:"I.",txt:""}];
+  return out;
+}
+function MG_parseMus(txt){
+  var out={f:{},S:{},perf:[],notes:[],likes:[],dis:[],chg:[],exp:[],wera:[],mtype:[],mroles:[],minst:[],wsrc:[],msrc:[],movs:[{l:"I.",txt:""}]};
+  txt.split("\n").forEach(function(raw){
+    var t=raw.trim();if(!t)return;
+    var pm=t.match(/^([^:：]+)::\s*(.*)$/);
+    if(!pm){
+      var ap=t.match(/^📎\s*(.*)$/);
+      if(ap){var sp2=ap[1].split(/\s+—\s+/);out.msrc.push({d:sp2[0]||"",u:sp2[1]||""})}
+      return;
+    }
+    var k=pm[1].trim(),v=pm[2].trim();
+    if(!v||k==="type"||k==="記錄日期")return;
+    if(k==="別名")out.f.m_alias=v;
+    else if(k==="類型")out.mtype=v.split(/,\s*/).filter(Boolean);
+    else if(k==="樂器")out.minst=v.split(/,\s*/).filter(Boolean);
+    else if(k==="Roles")out.mroles=v.split(/,\s*/).filter(Boolean);
+    else if(k==="Style-Era")out.f.m_styleera=v;
+    else if(k==="活躍年代"){var yy=v.split(/[–—-]\s*/);out.f.m_from=yy[0]||"";out.f.m_to=yy[1]||""}
+    else if(k==="一句話")out.f.m_oneline=v;
+  });
+  return out;
+}
+async function MG_loadFromWiki(obj){
+  var br=await SDB.from("blocks").select("content").eq("page_id",obj.id).order("order_num");
+  var txt=(br.data||[]).map(function(x){return x.content}).join("\n\n");
+  if(!txt){MG_toast("呢頁冇內容");return}
+  var parsed=obj.kind==="ver"?MG_parseVer(txt):obj.kind==="work"?MG_parseWork(txt):MG_parseMus(txt);
+  if(!confirm("載入呢張卡會覆蓋而家表單，確定？"))return;
+  MG_applyState(MG_normParsed(parsed));
+  MG_show(obj.kind);
+  window.scrollTo(0,0);
+  MG_toast("已載入 ✓ 改完撳📥存入維基就更新同一頁");
+}
+window.MG_editFromWiki=function(id,kind){
+  try{sessionStorage.setItem("mg_pending_edit",JSON.stringify({id:id,kind:kind}))}catch(e){}
+  location.hash="#/tool/musgen";
+};
+/* ---- 卡片摺疊（事件委派版） ---- */
+function MG_colStore(){try{return JSON.parse(localStorage.getItem("mg_collapse")||"{}")}catch(e){return{}}}
+function MG_colSave(o){try{localStorage.setItem("mg_collapse",JSON.stringify(o))}catch(e){}}
+function MG_colKey(hd){
+  var pg=hd.closest(".gpage");var tab=pg?pg.id:"pg-?";
+  return tab+"|"+hd.textContent.replace(/[▸▾]/g,"").trim();
+}
+function MG_decorateHeaders(){
+  var store=MG_colStore();
+  var hds=document.querySelectorAll("#main .cardhd");
+  for(var i=0;i<hds.length;i++){
+    var hd=hds[i];
+    var cv=hd.querySelector(".chv");
+    if(!cv){cv=document.createElement("span");cv.className="chv";cv.textContent="▾";hd.appendChild(cv)}
+    var k=MG_colKey(hd);
+    var col=!!store[k];
+    hd.parentNode.classList.toggle("collapsed",col);
+    cv.textContent=col?"▸":"▾";
+  }
+}
+function MG_bindCollapse(){
+  if(!window.__mgColBound&&el("main")){
+    window.__mgColBound=true;
+    el("main").addEventListener("click",function(e){
+      var hd=e.target.closest?e.target.closest(".cardhd"):null;
+      if(!hd)return;
+      if(e.target.closest&&e.target.closest("button"))return;
+      var card=hd.closest(".card");
+      if(!card)return;
+      var on=card.classList.toggle("collapsed");
+      var cv=hd.querySelector(".chv");
+      if(cv)cv.textContent=on?"▸":"▾";
+      var k=MG_colKey(hd);
+      var st=MG_colStore();st[k]=on?1:0;MG_colSave(st);
+    });
+  }
+  var first=!localStorage.getItem("mg_collapse");
+  if(first){MG_colSave({"pg-ver|📤 輸出":1,"pg-work|📤 輸出":1,"pg-mus|📤 輸出":1,"pg-ver|🏁 總結":1})}
+  MG_decorateHeaders();
+}
+function MG_collapseAll(hide){
+  var store=MG_colStore();
+  var hds=document.querySelectorAll("#main .cardhd");
+  for(var i=0;i<hds.length;i++){
+    var hd=hds[i],c=hd.parentNode,k=MG_colKey(hd);
+    c.classList.toggle("collapsed",!!hide);
+    store[k]=hide?1:0;
+    var cv=hd.querySelector(".chv");if(cv)cv.textContent=hide?"▸":"▾";
+  }
+  MG_colSave(store);
+}
+function MG_ensureOpen(kw){
+  var hds=document.querySelectorAll("#main .cardhd");
+  for(var i=0;i<hds.length;i++){
+    if(hds[i].textContent.indexOf(kw)>=0&&hds[i].parentNode.classList.contains("collapsed"))hds[i].click();
+  }
+}
+
+async function viewMusGen(){
+  if(!el("wrap"))buildShell();sidebarClose();
+  if(MG_yt){try{MG_yt.destroy()}catch(e){}MG_yt=null}
+  var html='<div class="pad">';
+  html+='<div style="font-size:15px;font-weight:bold">🎵 音樂記錄生成器 <span class="time" id="mgTag"></span></div>';
+  html+='<div class="tabsbar">';
+  html+='<button id="tb-ver" class="on" onclick="MG_show(\'ver\')">💿 版本</button>';
+  html+='<button id="tb-work" onclick="MG_show(\'work\')">🎼 作品</button>';
+  html+='<button id="tb-mus" onclick="MG_show(\'mus\')">🎻 音樂人</button>';
+  html+='<button id="tb-voc" onclick="MG_show(\'voc\')">📚 詞庫</button>';
+  html+='<button id="tb-ov" onclick="MG_show(\'ov\')">📋 總覽</button></div>';
+  html+='<div style="display:flex;gap:6px;margin:-2px 0 6px"><button class="gbtn" style="flex:1" onclick="MG_collapseAll(1)">⤴ 全部收起</button><button class="gbtn" style="flex:1" onclick="MG_collapseAll(0)">⤵ 全部展開</button></div>';
+  /* ── 版本 ── */
+  html+='<div class="gpage show" id="pg-ver"><div class="wb">';
+  html+='<div class="wbL">';
+  html+='<div class="card"><div class="cardhd">💿 來源（貼 link 自動抓＋拆解）</div><div class="cardbd">';
+  html+='<input id="url" placeholder="https://youtu.be/...">';
+  html+='<div id="ytmeta" class="ytmeta2" style="display:none"><img id="ytThumb" alt=""><div><b id="ytTitle" style="font-size:13px;cursor:pointer" title="撳我重新抓取"></b><p class="time" id="ytChan"></p><button class="gbtn" onclick="MG_useTitle()">用標題做版本名</button></div></div>';
+  html+='<span class="glabel">平台（自動）</span><input id="platform">';
+  html+='<span class="glabel">時長 mm:ss</span><input id="dur">';
+  html+='<button class="gbtn" style="width:100%;margin-top:8px" onclick="MG_loadYT()">▶️ 載入播放器（落釘用）</button>';
+  html+='<div id="playerWrap" style="display:none;margin-top:8px"><div id="ytbox"></div></div>';
+  html+='</div></div>';
+  html+='<div class="card"><div class="cardhd">🎼 作品參照</div><div class="cardbd">';
+  html+='<span class="glabel">版本名</span><input id="verName">';
+  html+='<span class="glabel">作品名</span><input id="workName">';
+  html+='<span class="glabel">作曲家</span><select id="composerSel"></select>';
+  html+='<span class="glabel">作曲家自訂（填咗取代上面）</span><input id="composerCus">';
+  html+='<span class="glabel">演奏者（打名＋Enter）</span><input id="perfInput"><div class="chipsrow" id="perfChips"></div>';
+  html+='<span class="glabel">樂章（參照）</span><input id="movs">';
+  html+='<span class="glabel">對比版本</span><input id="vcomp">';
+  html+='</div></div>';
+  html+='</div>';
+  html+='<div class="wbR">';
+  html+='<div class="card"><div class="cardhd">🎙 錄音資料</div><div class="cardbd">';
+  html+='<div class="grow"><div style="flex:1"><span class="glabel">演出日期</span><input id="date" type="date"></div><div style="flex:1"><span class="glabel">Label</span><input id="label"></div></div>';
+  html+='<div class="traylab">Label 快選</div><div class="chipsrow" id="trayLabel"></div>';
+  html+='<span class="glabel">樂團／場地</span><input id="venue">';
+  html+='<span class="glabel">片源</span><div class="segbtns" id="srcSeg"></div>';
+  html+='<span class="glabel">性質</span><div class="segbtns" id="natSeg"></div>';
+  html+='</div></div>';
+  html+='<div class="card"><div class="cardhd">⏱ 逐段筆記</div><div class="cardbd">';
+  html+='<div style="display:flex;gap:6px;margin-bottom:6px"><button class="gbtn" onclick="MG_sortNotes()">↕ 按時間排序</button><button class="gbtn" onclick="MG_addNote()">＋ 加一段</button></div>';
+  html+='<div class="traylab">術語快選（撳入某行後用）</div><div class="chipsrow" id="trayNote"></div>';
+  html+='<div id="notes"></div>';
+  html+='<div class="traylab">⏱＝抓播放器當前時間・撳時間格＝跳去嗰度播・打秒數自動轉・打字彈詞庫聯想</div>';
+  html+='</div></div>';
+  html+='<div class="card"><div class="cardhd">🏁 總結</div><div class="cardbd">';
+  html+='<span class="glabel">狀態</span><div class="segbtns" id="stSeg"></div>';
+  html+='<span class="glabel">總評</span><div class="segbtns" id="rtSeg"></div>';
+  html+='<span class="glabel">速度印象</span><input id="f_tempo"><div class="chipsrow" id="trayTempo"></div>';
+  html+='<span class="glabel">音色取向</span><input id="f_timbre"><div class="chipsrow" id="trayTimbre"></div>';
+  html+='<span class="glabel">風格取向</span><input id="f_style"><div class="chipsrow" id="trayStyle"></div>';
+  html+='<span class="glabel">一句話總評</span><input id="verdict">';
+  html+='<span class="glabel">✅ 最鍾意</span><div id="likeRows"></div><button class="gbtn" style="width:100%" onclick="MG_addRow(\'likeRows\',MG_likes,\'邊段？\')">＋ 加</button>';
+  html+='<span class="glabel">⛔ 唔鍾意</span><div id="dislikeRows"></div><button class="gbtn" style="width:100%" onclick="MG_addRow(\'dislikeRows\',MG_dis,\'邊段？\')">＋ 加</button>';
+  html+='<span class="glabel">✍️ 對自己拉奏嘅改動</span><div id="changeRows"></div><button class="gbtn" style="width:100%" onclick="MG_addRow(\'changeRows\',MG_chg,\'改乜？\')">＋ 加</button>';
+  html+='<span class="glabel">🧪 練習實驗</span><div id="expRows"></div><button class="gbtn" style="width:100%" onclick="MG_addRow(\'expRows\',MG_exp,\'試乜？\')">＋ 加</button>';
+  html+='<span class="glabel">待補</span><input id="todo">';
+  html+='</div></div>';
+  html+='<div class="card"><div class="cardhd">📤 輸出</div><div class="cardbd">';
+  html+='<button class="gobtn" onclick="MG_genVer()">⚙️ 生成版本卡</button>';
+  html+='<span class="glabel">輸出</span><textarea id="outVer" class="gout" rows="12"></textarea>';
+  html+='<button class="gbtn" style="width:100%;margin-top:6px" onclick="MG_copyOut(\'outVer\')">📋 Copy</button>';
+  html+='<button class="wikibtn" onclick="MG_wiki(\'ver\')">📥 存入維基</button>';
+  html+='<button class="clrbtn" onclick="MG_clearCard(\'ver\',this)">🧹 清空呢張卡</button>';
+  html+='</div></div>';
+  html+='</div></div></div>';
+  /* ── 作品 ── */
+  html+='<div class="gpage" id="pg-work"><div class="wb">';
+  html+='<div class="wbL"><div class="card"><div class="cardhd">🎼 作品基本</div><div class="cardbd">';
+  html+='<span class="glabel">作品名稱</span><input id="w_name">';
+  html+='<span class="glabel">暱稱</span><input id="w_nick">';
+  html+='<span class="glabel">作曲家</span><select id="w_comp"></select>';
+  html+='<span class="glabel">作曲家自訂</span><input id="w_compCus">';
+  html+='<span class="glabel">作品編號</span><input id="w_cat" placeholder="Op.67 / BWV 1004">';
+  html+='<span class="glabel">總調性</span><input id="w_key">';
+  html+='<span class="glabel">編制</span><input id="w_scoring">';
+  html+='<span class="glabel">樂譜版本</span><input id="w_edition">';
+  html+='<span class="glabel">時期／樂派</span><div class="chipsrow" id="eraChips"></div>';
+  html+='<span class="glabel">創作年份</span><input id="w_year" inputmode="numeric">';
+  html+='</div></div></div>';
+  html+='<div class="wbR">';
+  html+='<div class="card"><div class="cardhd">📋 曲式結構（逐樂章）</div><div class="cardbd">';
+  html+='<div id="movRows"></div><button class="gbtn" style="width:100%" onclick="MG_addMov()">＋ 加樂章</button>';
+  html+='<div class="traylab">速度/表情快選（撳入某行後用）・打字亦可彈聯想</div><div class="chipsrow" id="trayMov"></div>';
+  html+='</div></div>';
+  html+='<div class="card"><div class="cardhd">📖 背景／同類</div><div class="cardbd">';
+  html+='<span class="glabel">創作背景</span><textarea id="w_background" rows="3"></textarea>';
+  html+='<span class="glabel">題獻／首演</span><input id="w_dedication">';
+  html+='<span class="glabel">同類作品</span><input id="w_similar">';
+  html+='<textarea id="w_similarnote" rows="2" placeholder="似喺邊"></textarea>';
+  html+='</div></div>';
+  html+='<div class="card"><div class="cardhd">🎯 理想版本目標</div><div class="cardbd">';
+  html+='<input id="goal_narrative" placeholder="敘事：…" style="margin-bottom:6px"><input id="goal_tempo" placeholder="速度：…" style="margin-bottom:6px"><input id="goal_timbre" placeholder="音色：…" style="margin-bottom:6px"><input id="goal_style" placeholder="風格：…" style="margin-bottom:6px"><input id="goal_structure" placeholder="結構焦點：…">';
+  html+='</div></div>';
+  html+='<div class="card"><div class="cardhd">📤 輸出</div><div class="cardbd">';
+  html+='<span class="glabel">📎 資料來源</span><div id="wsrcRows"></div><button class="gbtn" style="width:100%" onclick="MG_addSrc(\'wsrcRows\',MG_wsrc)">📎 加來源</button>';
+  html+='<button class="gobtn" onclick="MG_genWork()">⚙️ 生成作品卡</button>';
+  html+='<span class="glabel">輸出</span><textarea id="outWork" class="gout" rows="12"></textarea>';
+  html+='<button class="gbtn" style="width:100%;margin-top:6px" onclick="MG_copyOut(\'outWork\')">📋 Copy</button>';
+  html+='<button class="wikibtn" onclick="MG_wiki(\'work\')">📥 存入維基</button>';
+  html+='<button class="clrbtn" onclick="MG_clearCard(\'work\',this)">🧹 清空呢張卡</button>';
+  html+='</div></div></div></div></div>';
+  /* ── 音樂人 ── */
+  html+='<div class="gpage" id="pg-mus"><div class="wb">';
+  html+='<div class="wbL"><div class="card"><div class="cardhd">🎻 基本資料</div><div class="cardbd">';
+  html+='<span class="glabel">名稱</span><input id="m_name">';
+  html+='<span class="glabel">別名／其他拼寫</span><input id="m_alias">';
+  html+='<span class="glabel">類型（撳揀）</span><div class="chipsrow" id="mtypeChips"></div>';
+  html+='<span class="glabel">樂器（打名＋Enter）</span><input id="m_instIn"><div class="chipsrow" id="m_chips"></div>';
+  html+='<div class="traylab">樂器快選</div><div class="chipsrow" id="trayInst"></div>';
+  html+='<span class="glabel">Roles（打名＋Enter）</span><input id="m_roleIn"><div class="chipsrow" id="r_chips"></div>';
+  html+='<div class="traylab">Roles 快選</div><div class="chipsrow" id="trayRole"></div>';
+  html+='<span class="glabel">Style-Era</span><input id="m_styleera">';
+  html+='<span class="glabel">活躍年代</span><div class="grow"><input id="m_from" inputmode="numeric" placeholder="由"><input id="m_to" inputmode="numeric" placeholder="迄"></div>';
+  html+='<span class="glabel">一句話</span><textarea id="m_oneline" rows="2"></textarea>';
+  html+='</div></div></div>';
+  html+='<div class="wbR"><div class="card"><div class="cardhd">📤 輸出</div><div class="cardbd">';
+  html+='<span class="glabel">📎 資料來源</span><div id="msrcRows"></div><button class="gbtn" style="width:100%" onclick="MG_addSrc(\'msrcRows\',MG_msrc)">📎 加來源</button>';
+  html+='<button class="gobtn" onclick="MG_genMus()">⚙️ 生成音樂人卡</button>';
+  html+='<span class="glabel">輸出</span><textarea id="outMus" class="gout" rows="10"></textarea>';
+  html+='<button class="gbtn" style="width:100%;margin-top:6px" onclick="MG_copyOut(\'outMus\')">📋 Copy</button>';
+  html+='<button class="wikibtn" onclick="MG_wiki(\'mus\')">📥 存入維基</button>';
+  html+='<button class="clrbtn" onclick="MG_clearCard(\'mus\',this)">🧹 清空呢張卡</button>';
+  html+='</div></div></div></div></div>';
+  /* ── 詞庫 ── */
+  html+='<div class="gpage" id="pg-voc"><div class="wb">';
+  html+='<div class="wbL"><div class="card"><div class="cardhd">📚 詞庫瀏覽</div><div class="cardbd">';
+  html+='<input id="vq" placeholder="搜尋（中/英/解釋）" oninput="MG_renderVocab()">';
+  html+='<div class="catbar2" id="catbar"></div><div id="vlist" style="max-height:55vh;overflow-y:auto"></div>';
+  html+='</div></div></div>';
+  html+='<div class="wbR">';
+  html+='<div class="card"><div class="cardhd">☁️ 雲端同步（跨裝置）</div><div class="cardbd">';
+  html+='<div style="display:flex;gap:6px"><button class="gbtn" style="flex:1" onclick="MG_loadCloud()">⬇️ 載入雲端</button><button class="gbtn" style="flex:1" onclick="MG_upCloud()">☁️ 本地→雲端</button></div>';
+  html+='<span class="glabel">📥 匯入 localStorage 備份（my-vocab-local.json）</span>';
+  html+='<input type="file" id="va_file" accept=".json,.txt" style="display:none" onchange="MG_importFile(this)">';
+  html+='<button class="gbtn" style="width:100%" onclick="MG(\'va_file\').click()">選擇備份檔…</button>';
+  html+='</div></div>';
+  html+='<div class="card"><div class="cardhd">＋ 新增詞條（存呢部機）</div><div class="cardbd">';
+  html+='<input id="va_zh" placeholder="中文（必要）" style="margin-bottom:6px"><input id="va_en" placeholder="英文" style="margin-bottom:6px"><select id="va_cat"></select><input id="va_note" placeholder="解釋" style="margin-top:6px">';
+  html+='<button class="gobtn" onclick="MG_addVocab()">＋ 加入詞庫</button>';
+  html+='</div></div></div></div></div>';
+  /* ── 總覽 ── */
+  html+='<div class="gpage" id="pg-ov"><div id="ovBody"></div></div>';
+  html+='</div>';
+  html+='<div id="mgMini"><span class="mtime" id="mgMiniTime">–</span><button onclick="MG_togglePlay()">▶/⏸</button><button onclick="MG_pin()">⏱ 落釘</button></div>';
+  el("main").innerHTML=html;
+  MG_mount();
+  MG_bindCollapse();
+  var pe=null;try{pe=sessionStorage.getItem("mg_pending_edit")}catch(e){}
+  if(pe){try{sessionStorage.removeItem("mg_pending_edit");MG_loadFromWiki(JSON.parse(pe))}catch(e){}}
+}
+
+/* ---- 詞庫聯想（自動完成） ---- */
+var MG_AC={box:null,target:null,idx:-1,items:[],q:""};
+function MG_acInit(){
+  if(MG_AC.box)return;
+  var b=document.getElementById("mgac");
+  if(!b){b=document.createElement("div");b.id="mgac";document.body.appendChild(b)}
+  MG_AC.box=b;
+  window.addEventListener("scroll",MG_acHide,true);
+}
+function MG_acQuery(q){
+  q=q.trim().toLowerCase();
+  if(!q)return[];
+  var src=MG_local().concat(MG_SEEDS,MG_CLOUD,MG_BUILTIN);
+  var seen={},out=[];
+  for(var i=0;i<src.length&&out.length<12;i++){
+    var v=src[i];if(!v[1])continue;
+    var key=v[0]+"|"+v[1];if(seen[key])continue;
+    var en=String(v[2]||""),ds=String(v[3]||""),tg=String(typeof v[4]==="string"?v[4]:"");
+    if(v[1].toLowerCase().indexOf(q)>=0||en.toLowerCase().indexOf(q)>=0||ds.toLowerCase().indexOf(q)>=0||tg.toLowerCase().indexOf(q)>=0){
+      seen[key]=1;out.push({zh:v[1],en:en,cat:v[0],desc:ds});
+    }
+  }
+  return out;
+}
+function MG_acTrigger(inp){
+  var s=inp.selectionStart==null?inp.value.length:inp.selectionStart;
+  var before=inp.value.slice(0,s);
+  var m=before.match(/(\S+)$/);
+  var q=m?m[1]:"";
+  if(q.length<1){MG_acHide();return}
+  var items=MG_acQuery(q);
+  if(items.length===0){MG_acHide();return}
+  MG_AC.target=inp;MG_AC.q=q;MG_AC.items=items;MG_AC.idx=0;
+  var h="";
+  items.forEach(function(it,i){
+    h+='<div class="acit'+(i===0?" on":"")+'" data-i="'+i+'"><span><b>'+esc(it.zh)+'</b>'+(it.en?' <span class="en">'+esc(it.en)+'</span>':'')+'</span><span class="ct">'+esc(it.cat)+'</span></div>';
+  });
+  MG_AC.box.innerHTML=h;
+  var its=MG_AC.box.querySelectorAll(".acit");
+  for(var i=0;i<its.length;i++){
+    its[i].addEventListener("mousedown",function(e){e.preventDefault();MG_AC.idx=+this.getAttribute("data-i");MG_acPick()});
+  }
+  var r=inp.getBoundingClientRect();
+  MG_AC.box.style.left=r.left+"px";
+  MG_AC.box.style.top=(r.bottom+2)+"px";
+  MG_AC.box.style.width=Math.max(r.width,260)+"px";
+  MG_AC.box.style.display="block";
+}
+function MG_acHide(){if(MG_AC.box)MG_AC.box.style.display="none";MG_AC.target=null;MG_AC.idx=-1}
+function MG_acKey(e,inp){
+  if(!MG_AC.box||MG_AC.box.style.display!=="block"||MG_AC.target!==inp)return;
+  if(e.key==="ArrowDown"){MG_AC.idx=(MG_AC.idx+1)%MG_AC.items.length;MG_acHi();e.preventDefault()}
+  else if(e.key==="ArrowUp"){MG_AC.idx=(MG_AC.idx-1+MG_AC.items.length)%MG_AC.items.length;MG_acHi();e.preventDefault()}
+  else if(e.key==="Enter"){if(MG_AC.idx>=0){MG_acPick();e.preventDefault()}}
+  else if(e.key==="Escape"){MG_acHide()}
+}
+function MG_acHi(){
+  var its=MG_AC.box.querySelectorAll(".acit");
+  for(var i=0;i<its.length;i++)its[i].classList.toggle("on",i===MG_AC.idx);
+}
+function MG_acPick(){
+  var it=MG_AC.items[MG_AC.idx];if(!it||!MG_AC.target)return;
+  var inp=MG_AC.target;
+  var text=it.zh+(it.en?" "+it.en:"");
+  var s=inp.selectionStart==null?inp.value.length:inp.selectionStart;
+  var e2=inp.selectionEnd==null?s:inp.selectionEnd;
+  var before=inp.value.slice(0,s),after=inp.value.slice(e2);
+  var m=before.match(/(\S+)$/);
+  var rep=m?m[1]:"";
+  var nb=before.slice(0,before.length-rep.length);
+  var pad=nb&&!/\s$/.test(nb)?" ":"";
+  inp.value=nb+pad+text+" "+after.replace(/^\s+/,"");
+  var np=(nb+pad+text+" ").length;
+  MG_acHide();
+  inp.focus();
+  try{inp.setSelectionRange(np,np)}catch(x){}
+  inp.dispatchEvent(new Event("input"));
+}
+function MG_acBind(inp){MG_acInit();inp.addEventListener("input",function(){MG_acTrigger(inp)});inp.addEventListener("keydown",function(e){MG_acKey(e,inp)});inp.addEventListener("blur",function(){setTimeout(MG_acHide,180)})}
+
+function MG_mount(){
+  MG_acInit();
+  var segDefs={srcSeg:["官方","粉絲拍攝","電視廣播"],rangeSeg:["全部","選段"],natSeg:["現場","錄音室","彩排","廣播"],stSeg:["🚧聽緊","⏳待補","✅完成"],rtSeg:["⭐","⭐⭐","⭐⭐⭐","⭐⭐⭐⭐","⭐⭐⭐⭐⭐"]};
+  Object.keys(segDefs).forEach(function(k){segDefs[k].forEach(function(v){
+    var b=document.createElement("button");b.textContent=v;
+    b.onclick=function(){Array.prototype.forEach.call(MG(k).children,function(x){x.classList.remove("on")});b.classList.add("on");MG_S[k]=v;MG_save()};
+    MG(k).appendChild(b)})});
+  function hookAdd(inp,arr,box){MG(inp).addEventListener("keydown",function(e){
+    if(e.key===","||e.key==="Enter"){var n=MG(inp).value.replace(/,$/,"").trim();
+      if(n&&arr.indexOf(n)<0){arr.push(n);MG_drawList(box,arr);MG_save()}
+      MG(inp).value="";e.preventDefault()}})}
+  hookAdd("perfInput",MG_perf,"perfChips");hookAdd("m_instIn",MG_inst,"m_chips");hookAdd("m_roleIn",MG_roles,"r_chips");
+  ["platform","dur","date","venue","label","verName","workName","composerSel","composerCus","movs","vcomp","verdict","todo","f_tempo","f_timbre","f_style","w_name","w_nick","w_comp","w_compCus","w_cat","w_key","w_scoring","w_edition","w_year","w_background","w_dedication","w_similar","w_similarnote","goal_narrative","goal_tempo","goal_timbre","goal_style","goal_structure","m_name","m_alias","m_styleera","m_from","m_to","m_oneline"].forEach(function(id){MG(id).addEventListener("input",MG_save)});
+  ["f_tempo","f_timbre","f_style","verdict","todo","venue","w_background","m_oneline","w_similarnote","goal_narrative","goal_tempo","goal_timbre","goal_style","goal_structure"].forEach(function(id){MG_acBind(MG(id))});
+  MG("url").addEventListener("input",function(){MG_autoDetect();MG_save();
+    var id=MG_vid(MG("url").value);
+    if(id&&id!==MG_lastAuto){MG_lastAuto=id;MG_toast("抓取中…");setTimeout(function(){if(MG_vid(MG("url").value)===id)MG_fetchMeta(false)},400)}});
+  MG("ytTitle").onclick=function(){MG_fetchMeta(false)};
+  MG("va_cat").innerHTML=Object.keys(MG_CATS).map(function(k){return"<option value='"+k+"'>"+MG_CATS[k]+"</option>"}).join("");
+  MG_loadState();MG_renderAll();MG_loadSeeds();MG_loadCloud(true);
+  MG_mkDl("outVer","verfn","版本___",MG_buildVerPage);
+  MG_mkDl("outWork","workfn","作品___",MG_buildWorkPage);
+  MG_mkDl("outMus","musfn","音樂人___",MG_buildMusPage);
+}
+function MG_drawList(box,arr){MG(box).innerHTML="";arr.forEach(function(p,i){
+  var b=document.createElement("button");b.className="chipbtn on";b.textContent=p+" ×";
+  b.onclick=function(){arr.splice(i,1);MG_drawList(box,arr);MG_save()};MG(box).appendChild(b)})}
+function MG_drawRows(bid,arr,ph){MG(bid).innerHTML="";arr.forEach(function(r,i){
+  var d=document.createElement("div");d.className="grow";
+  var x=document.createElement("input");x.placeholder=ph;x.value=r.x||"";
+  var del=document.createElement("button");del.textContent="✕";
+  x.oninput=function(){r.x=x.value;MG_save()};
+  MG_acBind(x);
+  del.onclick=function(){arr.splice(i,1);MG_drawRows(bid,arr,ph);MG_save()};
+  d.appendChild(x);d.appendChild(del);MG(bid).appendChild(d)})}
+function MG_addRow(bid,arr,ph){arr.push({x:""});MG_drawRows(bid,arr,ph);MG_save()}
+function MG_drawSrc(bid,arr){MG(bid).innerHTML="";arr.forEach(function(r,i){
+  var d=document.createElement("div");d.className="grow";
+  var a=document.createElement("input");a.placeholder="名／描述";a.value=r.d||"";
+  var b=document.createElement("input");b.placeholder="https://…";b.value=r.u||"";
+  var del=document.createElement("button");del.textContent="✕";
+  a.oninput=function(){r.d=a.value;MG_save()};b.oninput=function(){r.u=b.value;MG_save()};
+  del.onclick=function(){arr.splice(i,1);MG_drawSrc(bid,arr);MG_save()};
+  d.appendChild(a);d.appendChild(b);d.appendChild(del);MG(bid).appendChild(d)})}
+function MG_addSrc(bid,arr){arr.push({d:"",u:""});MG_drawSrc(bid,arr);MG_save()}
+function MG_redrawNotes(){MG("notes").innerHTML="";MG_notes.forEach(function(n,i){if(!n.del)MG_note(i)})}
+function MG_note(i){var n=MG_notes[i];var d=document.createElement("div");d.className="grow";
+  var pin=document.createElement("button");pin.textContent="⏱";pin.className="gbtn";pin.title="抓播放器當前時間";
+  pin.onclick=function(){
+    if(!MG_yt||!MG_yt.getCurrentTime){MG_toast("播放器未ready");return}
+    var t=Math.floor(MG_yt.getCurrentTime());
+    n.t=Math.floor(t/60)+":"+("0"+t%60).slice(-2);
+    MG_redrawNotes();MG_save();MG_toast("已釘 "+n.t);
+  };
+  var t=document.createElement("input");t.className="tm";t.placeholder="mm:ss";t.value=n.t||"";
+  t.oninput=function(){n.t=t.value;MG_save()};
+  t.onblur=function(){MG_normTime(t,n)};
+  t.title="撳我＝跳去嗰個時間播放";
+  t.style.cursor="pointer";
+  t.onclick=function(){if(MG_yt&&n.t){var s=MG_toSec(n.t);if(s!==null){MG_yt.seekTo(s,true);MG_yt.playVideo()}}};
+  var x=document.createElement("textarea");x.rows=2;x.placeholder="段落／觀察（打字彈聯想）";x.value=n.txt||"";
+  var del=document.createElement("button");del.textContent="✕";
+  x.onfocus=function(){MG_LF={type:"note",i:i}};x.oninput=function(){n.txt=x.value;MG_save()};
+  MG_acBind(x);
+  del.onclick=function(){n.del=1;MG_redrawNotes();MG_save()};
+  d.appendChild(pin);d.appendChild(t);d.appendChild(x);d.appendChild(del);MG("notes").appendChild(d)}
+function MG_normTime(inp,n){
+  var v=inp.value.trim();
+  if(/^\d{1,4}$/.test(v)){
+    var m=Math.floor(v/60),s=v%60;
+    inp.value=m+":"+("0"+s).slice(-2);
+    if(n)n.t=inp.value;
+    MG_save();
+  }
+}
+function MG_sortNotes(){
+  var real=MG_notes.filter(function(n){return!n.del&&(n.t||n.txt)});
+  real.sort(function(a,b){var x=MG_toSec(a.t),y=MG_toSec(b.t);
+    if(x===null&&y===null)return 0;if(x===null)return 1;if(y===null)return -1;return x-y});
+  MG_notes=real;MG_redrawNotes();MG_save();MG_toast("已按時間排序 ✓");
+}
+function MG_addNote(){MG_notes.push({t:"",txt:""});MG_note(MG_notes.length-1)}
+var MG_ROMAN=["I.","II.","III.","IV.","V.","VI.","VII.","VIII."];
+function MG_redrawMovs(){MG("movRows").innerHTML="";MG_movs.forEach(function(m,i){MG_mov(i)})}
+function MG_mov(i){var m=MG_movs[i];var d=document.createElement("div");d.className="grow";
+  var l=document.createElement("input");l.className="tm";l.value=m.l;l.oninput=function(){m.l=l.value;MG_save()};
+  var x=document.createElement("input");x.placeholder="速度＋描述（打字彈聯想）";x.value=m.txt;
+  var del=document.createElement("button");del.textContent="✕";
+  x.onfocus=function(){MG_LF={type:"mov",i:i}};x.oninput=function(){m.txt=x.value;MG_save()};
+  MG_acBind(x);
+  del.onclick=function(){MG_movs.splice(i,1);MG_redrawMovs();MG_save()};
+  d.appendChild(l);d.appendChild(x);d.appendChild(del);MG("movRows").appendChild(d)}
+function MG_addMov(){MG_movs.push({l:MG_ROMAN[MG_movs.length]||"",txt:""});MG_redrawMovs();MG_save()}
+function MG_tap(zh){
+  if(MG_LF.type==="note"&&MG_notes[MG_LF.i]&&!MG_notes[MG_LF.i].del){MG_notes[MG_LF.i].txt=(MG_notes[MG_LF.i].txt||"")+zh+" ";MG_redrawNotes();MG_save()}
+  else if(MG_LF.type==="mov"&&MG_movs[MG_LF.i]){MG_movs[MG_LF.i].txt=(MG_movs[MG_LF.i].txt||"")+zh+" ";MG_redrawMovs();MG_save()}
+  else MG_toast("先撳入某行，再撓術語")}
+function MG_tray(box,cats,fn){if(!MG(box))return;MG(box).innerHTML="";cats.forEach(function(c){
+  MG_V().filter(function(v){return v[0]===c}).forEach(function(v){
+    var b=document.createElement("button");b.className="chipbtn";b.textContent=v[1];b.title=(v[2]?v[2]+" — ":"")+(v[3]||"");
+    b.onclick=function(){fn?fn(v[1]):MG_tap(v[1])};MG(box).appendChild(b)})})}
+function MG_fillSel(id){var cur=MG(id).value;MG(id).innerHTML="";
+  var pool=MG_SEEDED?MG_V().filter(function(v){return v[0]==="音樂人"&&v[4]==="作曲家"}):MG_V().filter(function(v){return v[0]==="comp"});
+  pool.forEach(function(v){var o=document.createElement("option");o.textContent=v[1];o.title=v[2];MG(id).appendChild(o)});
+  if(cur)MG(id).value=cur}
+function MG_toggle(bid,arr,pool){if(!MG(bid))return;MG(bid).innerHTML="";pool.forEach(function(t){
+  var b=document.createElement("button");b.className="chipbtn"+(arr.indexOf(t)>=0?" on":"");b.textContent=t;
+  b.onclick=function(){var i=arr.indexOf(t);if(i<0)arr.push(t);else arr.splice(i,1);b.classList.toggle("on");MG_save()};MG(bid).appendChild(b)})}
+function MG_renderAll(){
+  MG_fillSel("composerSel");MG_fillSel("w_comp");
+  MG_tray("trayNote",MG_has("術語")?["術語","技巧面向","表情記號","力度記號","速度術語"]:["tempo","dyn","expr","tech"]);
+  MG_tray("trayMov",MG_has("速度術語")?["速度術語","表情記號"]:["tempo","expr"]);
+  MG_tray("trayTempo",MG_has("速度印象")?["速度印象"]:["tempo"],function(zh){MG("f_tempo").value=(MG("f_tempo").value+" "+zh).trim();MG_save()});
+  MG_tray("trayTimbre",MG_has("音色取向")?["音色取向"]:[],function(zh){MG("f_timbre").value=(MG("f_timbre").value+" "+zh).trim();MG_save()});
+  MG_tray("trayStyle",MG_has("風格取向")?["風格取向"]:[],function(zh){MG("f_style").value=(MG("f_style").value+" "+zh).trim();MG_save()});
+  MG_tray("trayLabel",MG_has("Label")?["Label"]:[],function(zh){MG("label").value=zh;MG_save()});
+  MG_tray("trayInst",MG_has("樂器")?["樂器","室內樂"]:[],function(zh){if(MG_inst.indexOf(zh)<0){MG_inst.push(zh);MG_drawList("m_chips",MG_inst);MG_save()}});
+  MG_tray("trayRole",MG_has("Roles")?["Roles"]:[],function(zh){if(MG_roles.indexOf(zh)<0){MG_roles.push(zh);MG_drawList("r_chips",MG_roles);MG_save()}});
+  MG_toggle("eraChips",MG_wera,MG_has("時期")?MG_pool(["時期","樂派"]):MG_ERAS);
+  MG_toggle("mtypeChips",MG_mtype,MG_MTYPES);
+  MG_renderCats();MG_renderVocab();
+}
+function MG_renderCats(){var cb=MG("catbar");cb.innerHTML="";var names=["全部"];
+  Object.keys(MG_CATS).forEach(function(k){names.push(MG_CATS[k])});
+  names.forEach(function(n){var b=document.createElement("button");b.textContent=n;
+    if((MG_VCAT===""&&n==="全部")||MG_CATS[MG_VCAT]===n)b.classList.add("on");
+    b.onclick=function(){MG_VCAT=(n==="全部")?"":Object.keys(MG_CATS).filter(function(k){return MG_CATS[k]===n})[0]||"";MG_renderCats();MG_renderVocab()};
+    cb.appendChild(b)})}
+function MG_renderVocab(){var q=(MG("vq").value||"").toLowerCase();var d=MG("vlist");d.innerHTML="";
+  MG_V().filter(function(v){return(!MG_VCAT||v[0]===MG_VCAT)&&(!q||((v[1]+v[2]+v[3]+(typeof v[4]==="string"?v[4]:"")).toLowerCase().indexOf(q)>=0))}).forEach(function(v){
+    var r=document.createElement("div");r.className="vrow2";
+    var d3=v[3]||((typeof v[4]==="string"&&v[4])?"#"+v[4]:"");
+    r.innerHTML="<b>"+v[1]+"</b> <span class='en'>"+v[2]+"</span><span class='vn'>"+d3+"</span>";
+    if(typeof v[4]==="number"){var x=document.createElement("button");x.textContent="🗑";x.style.cssText="float:right;border:none;color:#a33;font-size:13px;background:none";x.onclick=function(){MG_delVocab(v[4])};r.appendChild(x)}
+    d.appendChild(r)})}
+function MG_addVocab(){var zh=MG("va_zh").value.trim();
+  if(!zh){MG_toast("打咗中文名先");return}
+  var c=MG_local();c.push([MG("va_cat").value,zh,MG("va_en").value.trim(),MG("va_note").value.trim(),Date.now()]);
+  try{localStorage.setItem("musvocab",JSON.stringify(c))}catch(e){}
+  MG("va_zh").value="";MG("va_en").value="";MG("va_note").value="";
+  MG_renderAll();MG_toast("已加 ✓（聯想即刻用得到）")}
+function MG_delVocab(uid){var c=MG_local().filter(function(v){return v[4]!==uid});
+  try{localStorage.setItem("musvocab",JSON.stringify(c))}catch(e){}MG_renderAll()}
+function MG_importFile(inp){
+  var f=inp.files[0];if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    try{
+      var arr=JSON.parse(rd.result);if(!Array.isArray(arr))throw 0;
+      var c=MG_local(),n=0;
+      arr.forEach(function(v,i){
+        if(Array.isArray(v)&&v[1]){c.push([v[0]||"",String(v[1]),v[2]||"",v[3]||"",Date.now()+i]);n++}
+        else if(v&&v.zh){c.push([v.cat||"",String(v.zh),v.en||"",v.desc||v.tag||"",Date.now()+i]);n++}
+      });
+      localStorage.setItem("musvocab",JSON.stringify(c));
+      MG_renderAll();MG_toast("已匯入 "+n+" 條 ✓");
+    }catch(e){MG_toast("⚠️ 讀唔到——確認係 JSON array 格式")}
+  };
+  rd.readAsText(f);
+}
+async function MG_loadCloud(silent){
+  try{
+    var r=await SDB.from("vocab").select("cat,zh,en,tag,descr").limit(2000);
+    if(r.error){if(!silent)MG_toast("載入失敗："+r.error.message);return}
+    MG_CLOUD=(r.data||[]).map(function(t){return[t.cat||"",String(t.zh||"").trim(),String(t.en||"").trim(),String(t.descr||"").trim(),String(t.tag||"").trim()]});
+    MG_extCats(MG_CLOUD);
+    MG("va_cat").innerHTML=Object.keys(MG_CATS).map(function(k){return"<option value='"+k+"'>"+MG_CATS[k]+"</option>"}).join("");
+    MG_renderAll();
+    if(!silent)MG_toast("雲端詞庫 ✓ 共 "+MG_CLOUD.length+" 條");
+  }catch(e){}
+}
+async function MG_upCloud(){
+  var local=MG_local();
+  if(local.length===0){MG_toast("本地冇自加詞");return}
+  var r=await SDB.from("vocab").select("cat,zh").limit(2000);
+  var have={};(r.data||[]).forEach(function(x){have[x.cat+"|"+x.zh]=1});
+  var rows=local.filter(function(v){return!have[v[0]+"|"+v[1]]}).map(function(v){
+    return{user_id:ME.id,cat:v[0],zh:v[1],en:v[2],descr:v[3],tag:""}});
+  if(rows.length===0){MG_toast("全部已經喺雲端 ✓");return}
+  var ins=await SDB.from("vocab").insert(rows);
+  if(ins.error){MG_toast("上傳失敗："+ins.error.message);return}
+  MG_toast("已上傳 "+rows.length+" 條 ✓");MG_loadCloud(true);
+}
+function MG_loadSeeds(){
+  if(!window.__seedTried){window.__seedTried=1;
+    ["vocab-seed-1.js","vocab-seed-2.js"].forEach(function(f){
+      var s=document.createElement("script");s.src=f;s.onload=MG_loadSeeds;s.onerror=MG_loadSeeds;document.body.appendChild(s)});
+    return}
+  var raw=(window.VOCAB_SEED_1||[]).concat(window.VOCAB_SEED_2||[]);
+  if(raw.length>=200){
+    MG_SEEDS=raw.map(function(t){return[t.cat||"",String(t.zh||"").trim(),String(t.en||"").trim(),String(t.desc||"").trim(),String(t.tag||"").trim()]}).filter(function(v){return v[1]});
+    MG_extCats(MG_SEEDS);MG_SEEDED=true;
+    MG("va_cat").innerHTML=Object.keys(MG_CATS).map(function(k){return"<option value='"+k+"'>"+MG_CATS[k]+"</option>"}).join("");
+    MG_renderAll();MG_toast("詞庫駁通 ✓ 共 "+MG_SEEDS.length+" 條");
+  }else MG_toast("⚠️ seed 檔得 "+raw.length+" 條——確認 vocab-seed-1.js / 2 喺同資料夾");
+}
+/* ---- YouTube ---- */
+function MG_vid(u){var m=(u||"").match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);return m?m[1]:null}
+function MG_fetchMeta(silent){
+  var id=MG_vid(MG("url").value);
+  if(!id){MG_toast("認唔到 YouTube id");return}
+  var watchUrl="https://www.youtube.com/watch?v="+id;
+  function applyMeta(j){
+    MG("ytThumb").src=j.thumbnail_url||("https://img.youtube.com/vi/"+id+"/hqdefault.jpg");
+    MG("ytTitle").textContent=j.title||"";
+    MG("ytChan").textContent=j.author_name||"";
+    MG("ytmeta").style.display="flex";
+    if(j.title&&!MG("verName").value)MG("verName").value=j.title;
+    MG_smartFill(j.title||"",j.author_name||"");
+    MG_save();
+  }
+  function tryNoembed(){
+    fetch("https://noembed.com/embed?url="+encodeURIComponent(watchUrl))
+      .then(function(r){return r.json()})
+      .then(function(j){
+        if(j&&j.title){applyMeta(j);MG_toast("抓到 ✓")}
+        else tryIframeApi();
+      })
+      .catch(tryIframeApi);
+  }
+  function tryIframeApi(){
+    var tries=0;
+    var t=setInterval(function(){
+      tries++;
+      var y=window.__MGYT;
+      if(y&&y.getVideoData){
+        try{
+          var d=y.getVideoData();
+          if(d&&d.title){
+            clearInterval(t);
+            applyMeta({title:d.title,author_name:d.author||"",thumbnail_url:"https://img.youtube.com/vi/"+id+"/hqdefault.jpg"});
+            MG_toast("從播放器抓到 ✓");
+            return;
+          }
+        }catch(e){}
+      }
+      if(tries>20){clearInterval(t);MG_toast("⚠️ 抓唔到——撳標題格重試，或手動填")}
+    },500);
+  }
+  fetch("https://www.youtube.com/oembed?format=json&url="+encodeURIComponent(watchUrl))
+    .then(function(r){
+      if(!r.ok)throw new Error("http "+r.status);
+      return r.json();
+    })
+    .then(applyMeta)
+    .catch(tryNoembed);
+}
+function MG_useTitle(){var t=MG("ytTitle").textContent;if(t){MG("verName").value=t;MG_save();MG_toast("已套用")}}
+function MG_smartFill(title,author){
+  if(!title)return;var t=title,ch=false;
+  MG_V().filter(function(v){return v[0]==="音樂人"||v[0]==="comp"}).forEach(function(m){
+    var isComp=MG_SEEDED?(m[0]==="音樂人"&&m[4]==="作曲家"):(m[0]==="comp");
+    var cands=[m[2],m[1]];if(m[2]&&m[2].indexOf(" ")>0)cands.push(m[2].split(" ").pop());
+    for(var i=0;i<cands.length;i++){var n=cands[i];if(!n||n.length<4)continue;
+      if(t.indexOf(n)>=0||(author&&author.indexOf(n)>=0)){
+        if(isComp){if(!MG("composerCus").value){MG("composerCus").value=m[1];ch=true}}
+        else if(MG_perf.indexOf(m[1])<0){MG_perf.push(m[1]);MG_drawList("perfChips",MG_perf);ch=true}
+        break}}});
+  var parts=t.split(/\s+[-–—|]\s+|\s*[:：]\s+/).filter(function(s){return s.length>2});
+  var kw=/(symphony|concerto|sonata|partita|suite|overture|variations|quartet|fantasia|rhapsody|交響|協奏|奏鳴|組曲|序曲|變奏|幻想|狂想|四重)/i;
+  var work=parts.filter(function(s){return kw.test(s)})[0]||"";
+  if(work){var cc=MG("composerCus").value||MG("composerSel").value||"";var ce="";
+    MG_V().forEach(function(v){if(((MG_SEEDED&&v[0]==="音樂人"&&v[4]==="作曲家")||(!MG_SEEDED&&v[0]==="comp"))&&v[1]===cc)ce=v[2]});
+    if(ce)work=work.replace(new RegExp("^"+ce.replace(/[.*+?${}()|[\]\\]/g,"\\$&")+"\\s*[:：]\\s*"),"");
+    if(!MG("workName").value){MG("workName").value=work;ch=true}}
+  var nick=t.match(/["“”']([^"“”']{3,40})["“”']/);if(nick&&!MG("w_nick").value){MG("w_nick").value=nick[1];ch=true}
+  var cm=t.match(/\b(BWV\s?\d+|Op\.?\s?\d+|K\.\s?\d+|D\.\s?\d+|RV\s?\d+)\b/i);
+  if(cm&&!MG("w_cat").value)MG("w_cat").value=cm[1].replace(/\s+/g," ").replace("Op","Op.");
+  var km=t.match(/\b([A-G][b#]?)\s?(major|minor|大調|小調)/i);
+  if(km&&!MG("w_key").value)MG("w_key").value=km[1]+(/minor|小調/i.test(km[2])?"小調":"大調");
+  if(/live|現場/i.test(t)&&!MG_S.natSeg){MG_markSeg("natSeg","現場");ch=true}
+  if(ch)MG_save();
+}
+function MG_markSeg(k,val){Array.prototype.forEach.call(MG(k).children,function(b){if(b.textContent===val)b.classList.add("on")});MG_S[k]=val}
+function MG_autoDetect(){var u=MG("url").value;
+  var m=[[/youtu/,"YouTube"],[/bilibili/,"Bilibili"],[/nico/,"Niconico"],[/vimeo/,"Vimeo"]];
+  for(var i=0;i<m.length;i++){if(m[i][0].test(u)){MG("platform").value=m[i][1];return}}
+  if(u)MG("platform").value="其他"}
+function MG_toSec(s){if(!s)return null;var m=String(s).match(/^(\d+):(\d{1,2})$/);return m?(+m[1]*60)+ +m[2]:null}
+function MG_loadYT(){
+  var id=MG_vid(MG("url").value);
+  if(!id){MG_toast("先填 YouTube 連結");return}
+  MG("playerWrap").style.display="block";
+  if(MG_yt){MG_yt.loadVideoById(id);return}
+  if(window.YT&&YT.Player){MG_yt=new YT.Player("ytbox",{videoId:id,playerVars:{rel:0}});return}
+  window.onYouTubeIframeAPIReady=function(){MG_yt=new YT.Player("ytbox",{videoId:id,playerVars:{rel:0}})};
+  if(!window.__ytApi){window.__ytApi=1;var s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.body.appendChild(s)}
+}
+function MG_pin(){
+  if(!MG_yt||!MG_yt.getCurrentTime){MG_toast("播放器未ready");return}
+  var t=Math.floor(MG_yt.getCurrentTime());var lab=Math.floor(t/60)+":"+("0"+t%60).slice(-2);
+  if(MG_LF.type!=="note"||!MG_notes[MG_LF.i]||MG_notes[MG_LF.i].del){MG_addNote();MG_LF={type:"note",i:MG_notes.length-1}}
+  MG_notes[MG_LF.i].t=lab;MG_redrawNotes();MG_save();MG_ensureOpen("逐段筆記");MG_toast("落釘 "+lab);
+}
+function MG_togglePlay(){
+  if(!MG_yt||!MG_yt.getPlayerState){MG_toast("播放器未ready");return}
+  try{if(MG_yt.getPlayerState()===1)MG_yt.pauseVideo();else MG_yt.playVideo()}catch(e){}
+}
+if(!window.__mgTick){
+  window.__mgTick=setInterval(function(){
+    try{
+      var tm=document.getElementById("mgMiniTime");
+      if(!tm)return;
+      var mb=document.getElementById("mgMini");
+      var pw=document.getElementById("playerWrap");
+      var yt=window.__MGYT||null;
+      if(!yt||!pw||pw.style.display==="none"){if(mb)mb.style.display="none";if(tm)tm.textContent="–";return}
+      var s=Math.floor(yt.getCurrentTime());
+      tm.textContent=Math.floor(s/60)+":"+("0"+s%60).slice(-2);
+      var r=pw.getBoundingClientRect();
+      mb.style.display=(r.bottom<52)?"flex":"none";
+    }catch(e){}
+  },500);
+}
+/* ---- 生成輸出 ---- */
+function MG_cleanName(s){return String(s||"").replace(/["“”„':.!?【】\[\]\\\/<>|*#]/g," ").replace(/\s+/g," ").trim().slice(0,60).replace(/[\s.]+$/,"")}
+function MG_lsDate(){var M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],d=new Date(),day=d.getDate();
+  var suf=(day%10==1&&day!=11)?"st":(day%10==2&&day!=12)?"nd":(day%10==3&&day!=13)?"rd":"th";
+  return M[d.getMonth()]+" "+day+suf+", "+d.getFullYear()}
+function MG_genVer(){
+  var v=function(id){return MG(id).value.trim()};
+  var name=MG_cleanName(v("verName")||v("workName")||"未命名版本");
+  var comp=MG_cleanName(v("composerCus"))||MG("composerSel").value.trim();
+  var o="",first=1;
+  function P(k,val){if(!val)return;o+=(first?"- ":"  ")+k+":: "+val+"\n";first=0}
+  P("type","版本");P("記錄日期","[["+MG_lsDate()+"]]");P("狀態",MG_S.stSeg||"🚧聽緊");P("平台",v("platform"));P("連結",v("url"));P("時長",v("dur"));P("演出日期",v("date"));P("樂團/場地",v("venue"));P("Label",v("label"));P("片源",MG_S.srcSeg);P("性質",MG_S.natSeg);P("評分",MG_S.rtSeg);P("速度印象",v("f_tempo"));P("音色取向",v("f_timbre"));P("風格取向",v("f_style"));P("樂章",v("movs"));
+  P("作品",v("workName")?"[[作品___"+MG_cleanName(v("workName"))+"]]":"");
+  P("作曲家",comp?"[["+comp+"]]":"");
+  if(MG_perf.length)P("演奏者",MG_perf.map(function(p){return"[[音樂人___"+MG_cleanName(p)+"]]"}).join(", "));
+  P("對比版本",v("vcomp")?"[[版本___"+MG_cleanName(v("vcomp"))+"]]":"");
+  P("一句話總評",v("verdict"));
+  o+=(first?"- ":"  ")+"[[版本___"+name+"]]\n";
+  o+="\t- **④ 逐段筆記**\n";
+  var any=false;
+  MG_notes.forEach(function(n){
+    if(n.del||(!n.t&&!n.txt))return;any=true;var s=MG_toSec(n.t);
+    var j=(s!==null&&v("url"))?v("url").split("?")[0]+"?t="+s+"s":"";
+    o+="\t\t- "+(n.t?n.t+" ":"")+n.txt+(j?" [跳轉]("+j+")":"")+"\n"});
+  if(!any)o+="\t\t- 0:00 開始 —\n";
+  o+="\t- **⑤ 總結**\n";
+  MG_likes.forEach(function(r){if(r.x)o+="\t\t- ✅ "+r.x+"\n"});
+  MG_dis.forEach(function(r){if(r.x)o+="\t\t- ⛔ "+r.x+"\n"});
+  MG_chg.forEach(function(r){if(r.x)o+="\t\t- ✍️ "+r.x+"\n"});
+  MG_exp.forEach(function(r){if(r.x)o+="\t\t- 🧪 "+r.x+"\n"});
+  if(v("todo"))o+="\t\t- 待補："+v("todo")+"\n";
+  MG("outVer").value=o;MG_save();MG_toast("版本卡生成 ✓");MG("outVer").scrollIntoView({behavior:"smooth"});
+}
+function MG_genWork(){
+  var v=function(id){return MG(id).value.trim()};
+  var name=MG_cleanName(v("w_name")||v("w_nick")||"未命名作品");
+  var comp=MG_cleanName(v("w_compCus"))||MG("w_comp").value.trim();
+  var o="",first=1;
+  function P(k,val){if(!val)return;o+=(first?"- ":"  ")+k+":: "+val+"\n";first=0}
+  P("type","作品");P("記錄日期","[["+MG_lsDate()+"]]");P("暱稱",v("w_nick"));P("目錄編號",v("w_cat"));P("調性",v("w_key"));P("編制",v("w_scoring"));P("樂譜版本",v("w_edition"));P("創作年份",v("w_year"));
+  P("作曲家",comp?"[["+comp+"]]":"");
+  if(MG_wera.length)P("時期/樂派",MG_wera.join(", "));
+  P("創作背景",v("w_background"));P("題獻/首演",v("w_dedication"));
+  P("同類作品",v("w_similar")?"[[作品___"+MG_cleanName(v("w_similar"))+"]]"+(v("w_similarnote")?" — "+v("w_similarnote"):""):"");
+  o+=(first?"- ":"  ")+"[[作品___"+name+"]]\n";
+  o+="\t- **🎯 理想版本目標**\n";
+  [["敘事","goal_narrative"],["速度","goal_tempo"],["音色","goal_timbre"],["風格","goal_style"],["結構焦點","goal_structure"]].forEach(function(g){if(v(g[1]))o+="\t\t- "+g[0]+"："+v(g[1])+"\n"});
+  o+="\t- **樂章明細**\n";
+  var rows=MG_movs.filter(function(m){return m.l||m.txt});
+  if(rows.length)rows.forEach(function(m){o+="\t\t- "+m.l+" "+m.txt+"\n"});else o+="\t\t- I. \n";
+  MG_wsrc.forEach(function(r){if(r.d||r.u)o+="  資料來源:: "+r.d+(r.u?" — "+r.u:"")+"\n"});
+  MG("outWork").value=o;MG_save();MG_toast("作品卡生成 ✓");MG("outWork").scrollIntoView({behavior:"smooth"});
+}
+function MG_genMus(){
+  var v=function(id){return MG(id).value.trim()};
+  var name=MG_cleanName(v("m_name")||"未命名音樂人");
+  var o="",first=1;
+  function P(k,val){if(!val)return;o+=(first?"- ":"  ")+k+":: "+val+"\n";first=0}
+  P("type","音樂人");P("記錄日期","[["+MG_lsDate()+"]]");P("別名",v("m_alias"));
+  if(MG_mtype.length)P("類型",MG_mtype.join(", "));
+  if(MG_inst.length)P("樂器",MG_inst.join(", "));
+  if(MG_roles.length)P("Roles",MG_roles.join(", "));
+  P("Style-Era",v("m_styleera"));
+  if(v("m_from"))P("活躍年代",v("m_from")+"–"+(v("m_to")||""));
+  P("一句話",v("m_oneline"));
+  o+=(first?"- ":"  ")+"[[音樂人___"+name+"]]\n";
+  MG_msrc.forEach(function(r){if(r.d||r.u)o+="\t- 📎 "+r.d+(r.u?" — "+r.u:"")+"\n"});
+  MG("outMus").value=o;MG_save();MG_toast("音樂人卡生成 ✓");MG("outMus").scrollIntoView({behavior:"smooth"});
+}
+function MG_buildVerPage(){
+  var v=function(id){return MG(id).value.trim()};
+  var name=MG_cleanName(v("verName")||v("workName")||"未命名版本");
+  var comp=MG_cleanName(v("composerCus"))||MG("composerSel").value.trim();
+  var o="";
+  function P(k,val){if(!val)return;o+=k+":: "+val+"\n"}
+  P("type","版本");P("記錄日期","[["+MG_lsDate()+"]]");P("狀態",MG_S.stSeg||"🚧聽緊");P("平台",v("platform"));P("連結",v("url"));P("時長",v("dur"));P("演出日期",v("date"));P("樂團/場地",v("venue"));P("Label",v("label"));P("片源",MG_S.srcSeg);P("性質",MG_S.natSeg);P("評分",MG_S.rtSeg);P("速度印象",v("f_tempo"));P("音色取向",v("f_timbre"));P("風格取向",v("f_style"));P("樂章",v("movs"));
+  P("作品",v("workName")?"[[作品___"+MG_cleanName(v("workName"))+"]]":"");
+  P("作曲家",comp?"[["+comp+"]]":"");
+  if(MG_perf.length)P("演奏者",MG_perf.map(function(p){return"[[音樂人___"+MG_cleanName(p)+"]]"}).join(", "));
+  P("對比版本",v("vcomp")?"[[版本___"+MG_cleanName(v("vcomp"))+"]]":"");
+  P("一句話總評",v("verdict"));
+  o+="\n- **④ 逐段筆記**\n";
+  var any=false;
+  MG_notes.forEach(function(n){
+    if(n.del||(!n.t&&!n.txt))return;any=true;var s=MG_toSec(n.t);
+    var j=(s!==null&&v("url"))?v("url").split("?")[0]+"?t="+s+"s":"";
+    o+="\t- "+(n.t?n.t+" ":"")+n.txt+(j?" [跳轉]("+j+")":"")+"\n"});
+  if(!any)o+="\t- 0:00 開始 —\n";
+  o+="- **⑤ 總結**\n";
+  MG_likes.forEach(function(r){if(r.x)o+="\t- ✅ "+r.x+"\n"});
+  MG_dis.forEach(function(r){if(r.x)o+="\t- ⛔ "+r.x+"\n"});
+  MG_chg.forEach(function(r){if(r.x)o+="\t- ✍️ "+r.x+"\n"});
+  MG_exp.forEach(function(r){if(r.x)o+="\t- 🧪 "+r.x+"\n"});
+  if(v("todo"))o+="\t- 待補："+v("todo")+"\n";
+  return{name:name,txt:o};
+}
+function MG_buildWorkPage(){
+  var v=function(id){return MG(id).value.trim()};
+  var name=MG_cleanName(v("w_name")||v("w_nick")||"未命名作品");
+  var comp=MG_cleanName(v("w_compCus"))||MG("w_comp").value.trim();
+  var o="";
+  function P(k,val){if(!val)return;o+=k+":: "+val+"\n"}
+  P("type","作品");P("記錄日期","[["+MG_lsDate()+"]]");P("暱稱",v("w_nick"));P("目錄編號",v("w_cat"));P("調性",v("w_key"));P("編制",v("w_scoring"));P("樂譜版本",v("w_edition"));P("創作年份",v("w_year"));
+  P("作曲家",comp?"[["+comp+"]]":"");
+  if(MG_wera.length)P("時期/樂派",MG_wera.join(", "));
+  P("創作背景",v("w_background"));P("題獻/首演",v("w_dedication"));
+  P("同類作品",v("w_similar")?"[[作品___"+MG_cleanName(v("w_similar"))+"]]"+(v("w_similarnote")?" — "+v("w_similarnote"):""):"");
+  o+="\n- **🎯 理想版本目標**\n";
+  [["敘事","goal_narrative"],["速度","goal_tempo"],["音色","goal_timbre"],["風格","goal_style"],["結構焦點","goal_structure"]].forEach(function(g){if(v(g[1]))o+="\t- "+g[0]+"："+v(g[1])+"\n"});
+  o+="- **樂章明細**\n";
+  var rows=MG_movs.filter(function(m){return m.l||m.txt});
+  if(rows.length)rows.forEach(function(m){o+="\t- "+m.l+" "+m.txt+"\n"});else o+="\t- I. \n";
+  MG_wsrc.forEach(function(r){if(r.d||r.u)o+="資料來源:: "+r.d+(r.u?" — "+r.u:"")+"\n"});
+  return{name:name,txt:o};
+}
+function MG_buildMusPage(){
+  var v=function(id){return MG(id).value.trim()};
+  var name=MG_cleanName(v("m_name")||"未命名音樂人");
+  var o="";
+  function P(k,val){if(!val)return;o+=k+":: "+val+"\n"}
+  P("type","音樂人");P("記錄日期","[["+MG_lsDate()+"]]");P("別名",v("m_alias"));
+  if(MG_mtype.length)P("類型",MG_mtype.join(", "));
+  if(MG_inst.length)P("樂器",MG_inst.join(", "));
+  if(MG_roles.length)P("Roles",MG_roles.join(", "));
+  P("Style-Era",v("m_styleera"));
+  if(v("m_from"))P("活躍年代",v("m_from")+"–"+(v("m_to")||""));
+  P("一句話",v("m_oneline"));
+  o+="\n";
+  MG_msrc.forEach(function(r){if(r.d||r.u)o+="- 📎 "+r.d+(r.u?" — "+r.u:"")+"\n"});
+  return{name:name,txt:o};
+}
+async function MG_wiki(kind){
+  var r=kind==="ver"?MG_buildVerPage():kind==="work"?MG_buildWorkPage():MG_buildMusPage();
+  var pre=kind==="ver"?"版本___":kind==="work"?"作品___":"音樂人___";
+  var pid=await saveToWiki(pre+r.name,r.txt,"musgen");
+  if(pid)MG_toast("已存入維基 ✓ "+pre+r.name);
+}
+function MG_copyOut(id){var t=MG(id);t.focus();t.select();
+  try{t.setSelectionRange(0,999999)}catch(e){}
+  var ok=false;
+  try{if(navigator.clipboard){navigator.clipboard.writeText(t.value);ok=true}}catch(e){}
+  if(!ok){try{ok=document.execCommand("copy")}catch(e){}}
+  MG_toast(ok?"已 copy ✓":"自動 copy 唔到——長撳輸出格→全選→拷貝")}
+var MG_armT={};
+function MG_clearCard(k,btn){
+  if(btn.dataset.arm==="1"){MG_doClear(k);btn.dataset.arm="";btn.textContent=btn.dataset.orig;clearTimeout(MG_armT[k]);MG_toast("已清空")}
+  else{btn.dataset.orig=btn.textContent;btn.dataset.arm="1";btn.textContent="⚠️ 再撳一次確認清空";
+    MG_armT[k]=setTimeout(function(){btn.dataset.arm="";btn.textContent=btn.dataset.orig},2500)}
+}
+function MG_doClear(k){
+  if(k==="ver"){["url","platform","dur","date","venue","label","verName","workName","composerCus","movs","vcomp","verdict","todo","f_tempo","f_timbre","f_style"].forEach(function(id){MG(id).value=""});
+    MG_perf=[];MG_drawList("perfChips",MG_perf);MG_notes=[{t:"",txt:""}];MG_redrawNotes();
+    MG_likes=[];MG_drawRows("likeRows",MG_likes,"邊段？");MG_dis=[];MG_drawRows("dislikeRows",MG_dis,"邊段？");
+    MG_chg=[];MG_drawRows("changeRows",MG_chg,"改乜？");MG_exp=[];MG_drawRows("expRows",MG_exp,"試乜？");
+    MG("ytmeta").style.display="none";MG_lastAuto="";
+    ["srcSeg","rangeSeg","natSeg","stSeg","rtSeg"].forEach(function(s){Array.prototype.forEach.call(MG(s).children,function(b){b.classList.remove("on")});delete MG_S[s]});}
+  if(k==="work"){["w_name","w_nick","w_compCus","w_cat","w_key","w_scoring","w_edition","w_year","w_background","w_dedication","w_similar","w_similarnote","goal_narrative","goal_tempo","goal_timbre","goal_style","goal_structure"].forEach(function(id){MG(id).value=""});
+    MG_wera=[];MG_toggle("eraChips",MG_wera,MG_has("時期")?MG_pool(["時期","樂派"]):MG_ERAS);MG_movs=[{l:"I.",txt:""}];MG_redrawMovs();MG_wsrc=[];MG_drawSrc("wsrcRows",MG_wsrc);}
+  if(k==="mus"){["m_name","m_alias","m_instIn","m_roleIn","m_styleera","m_from","m_to","m_oneline"].forEach(function(id){MG(id).value=""});
+    MG_inst=[];MG_drawList("m_chips",MG_inst);MG_roles=[];MG_drawList("r_chips",MG_roles);MG_mtype=[];MG_toggle("mtypeChips",MG_mtype,MG_MTYPES);MG_msrc=[];MG_drawSrc("msrcRows",MG_msrc);}
+  MG_save();
+}
+function MG_loadState(){
+  try{
+    var d=JSON.parse(localStorage.getItem("musgen5"));if(!d)return;
+    MG_applyState(d);
+  }catch(e){}
+}
+function MG_mkDl(outId,fnId,pre,buildFn){
+  var t=MG(outId);if(!t||MG(fnId))return;
+  var box=document.createElement("div");
+  var inp=document.createElement("input");inp.id=fnId;inp.placeholder="檔名（自動填）";inp.style.marginTop="6px";
+  inp.addEventListener("input",function(){inp.dataset.touched="1"});
+  var btn=document.createElement("button");btn.textContent="💾 下載 .md";btn.className="gbtn";btn.style.cssText="width:100%;margin-top:6px";
+  btn.onclick=function(){
+    var r=buildFn();if(!r)return;
+    var base=(inp.dataset.touched==="1"&&inp.value.trim())?MG_cleanName(inp.value.trim().replace(/\.md$/i,"")):pre+MG_cleanName(r.name);
+    inp.value=base;
+    var b=new Blob([r.txt],{type:"text/markdown;charset=utf-8"}),a=document.createElement("a");
+    a.href=URL.createObjectURL(b);a.download=base+".md";document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},800);
+    MG_toast("已下載 "+base+".md");
+  };
+  box.appendChild(inp);box.appendChild(btn);t.parentNode.insertBefore(box,t.nextSibling);
+}
+window.MG_show=MG_show;window.MG_fetchMeta=MG_fetchMeta;window.MG_useTitle=MG_useTitle;window.MG_loadYT=MG_loadYT;window.MG_pin=MG_pin;window.MG_togglePlay=MG_togglePlay;window.MG_addNote=MG_addNote;window.MG_sortNotes=MG_sortNotes;window.MG_addMov=MG_addMov;window.MG_addRow=MG_addRow;window.MG_addSrc=MG_addSrc;window.MG_genVer=MG_genVer;window.MG_genWork=MG_genWork;window.MG_genMus=MG_genMus;window.MG_copyOut=MG_copyOut;window.MG_clearCard=MG_clearCard;window.MG_addVocab=MG_addVocab;window.MG_delVocab=MG_delVocab;window.MG_renderVocab=MG_renderVocab;window.MG_upCloud=MG_upCloud;window.MG_loadCloud=MG_loadCloud;window.MG_importFile=MG_importFile;window.MG_wiki=MG_wiki;window.MG_focusField=MG_focusField;window.MG_draftSave=MG_draftSave;window.MG_draftLoad=MG_draftLoad;window.MG_draftDel=MG_draftDel;window.MG_wikiLoadUI=MG_wikiLoadUI;window.MG_collapseAll=MG_collapseAll;
+Object.defineProperty(window,"__MGYT",{get:function(){return MG_yt}});
+}
+</script>
+</body>
+</html>

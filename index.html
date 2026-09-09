@@ -123,6 +123,10 @@ h2.sec{font-size:12px;font-weight:bold;color:#9a958c;margin:0 0 8px}
 .ovrow .ovv{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .ovrow button{font-size:11px;padding:3px 8px;border:1px solid #ddd6fe;border-radius:6px;color:#8b5cf6;background:#fff}
 .draftitem{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #f0eeea;font-size:13px}
+  .cardhd{cursor:pointer;user-select:none}
+.cardhd .chv{float:right;color:#aaa;font-size:12px;font-weight:normal}
+.card.collapsed .cardbd{display:none}
+  
 </style>
 </head>
 <body>
@@ -480,6 +484,9 @@ async function viewPage(id){
   html+='</div>';
   html+='<div style="margin-top:10px;text-align:right">';
   html+='<button onclick="location.hash=\'#/edit/'+id+'\'" style="font-size:13px;color:#8b5cf6;padding:6px 10px;border:1px solid #e5e3de;border-radius:8px;background:#fff">✏️ 編輯</button></div>';
+    var mk=p.title.indexOf("版本___")===0?"ver":p.title.indexOf("作品___")===0?"work":p.title.indexOf("音樂人___")===0?"mus":null;
+  if(mk)html+='<button onclick="MG_editFromWiki(\''+id+'\',\''+mk+'\')" style="font-size:13px;color:#6d28d9;padding:6px 10px;border:1px solid #c4b5fd;border-radius:8px;background:#fff;margin-left:6px">🎵 喺生成器編輯呢張卡</button>';
+  
   if(ch.data&&ch.data.length>0){
     html+='<h2 class="sec" style="margin-top:20px">子頁面</h2>';
     for(var c=0;c<ch.data.length;c++)html+='<a class="chip" href="#/page/'+ch.data[c].id+'">📄 '+esc(ch.data[c].title)+'</a>';
@@ -925,7 +932,123 @@ function MG_parseVer(txt){
   });
   return out;
 }
-
+/* ⭐ 卡片摺疊（記住狀態） */
+function MG_colStore(){try{return JSON.parse(localStorage.getItem("mg_collapse")||"{}")}catch(e){return{}}}
+function MG_colSave(o){try{localStorage.setItem("mg_collapse",JSON.stringify(o))}catch(e){}}
+function MG_colKey(hd){
+  var pg=hd.closest(".gpage");var tab=pg?pg.id:"pg-?";
+  return tab+"|"+hd.textContent.replace(/[▸▾]/g,"").trim();
+}
+function MG_bindCollapse(){
+  var first=!localStorage.getItem("mg_collapse");
+  var store=MG_colStore();
+  if(first){store={"pg-ver|📤 輸出":1,"pg-work|📤 輸出":1,"pg-mus|📤 輸出":1,"pg-ver|🏁 總結":1};MG_colSave(store)}
+  var hds=document.querySelectorAll("#main .cardhd");
+  for(var i=0;i<hds.length;i++){
+    (function(hd){
+      var chv=document.createElement("span");chv.className="chv";chv.textContent="▾";hd.appendChild(chv);
+      var k=MG_colKey(hd);
+      if(store[k]){hd.parentNode.classList.add("collapsed");chv.textContent="▸"}
+      hd.onclick=function(e){
+        if(e.target.tagName==="BUTTON")return;
+        var on=hd.parentNode.classList.toggle("collapsed");
+        chv.textContent=on?"▸":"▾";
+        var st=MG_colStore();st[k]=on?1:0;MG_colSave(st);
+      };
+    })(hds[i]);
+  }
+}
+function MG_collapseAll(hide){
+  var store=MG_colStore();
+  var hds=document.querySelectorAll("#main .cardhd");
+  for(var i=0;i<hds.length;i++){
+    var hd=hds[i],c=hd.parentNode,k=MG_colKey(hd);
+    c.classList.toggle("collapsed",!!hide);
+    store[k]=hide?1:0;
+    var cv=hd.querySelector(".chv");if(cv)cv.textContent=hide?"▸":"▾";
+  }
+  MG_colSave(store);
+}
+function MG_ensureOpen(kw){
+  var hds=document.querySelectorAll("#main .cardhd");
+  for(var i=0;i<hds.length;i++){
+    if(hds[i].textContent.indexOf(kw)>=0&&hds[i].parentNode.classList.contains("collapsed"))hds[i].click();
+  }
+}
+/* ⭐ 解析作品卡／音樂人卡（從維基回載用） */
+function MG_parseWork(txt){
+  var out={f:{},S:{},perf:[],notes:[],likes:[],dis:[],chg:[],exp:[],wera:[],mtype:[],mroles:[],minst:[],wsrc:[],msrc:[],movs:[]};
+  var map={"暱稱":"w_nick","目錄編號":"w_cat","調性":"w_key","編制":"w_scoring","樂譜版本":"w_edition","創作年份":"w_year","創作背景":"w_background","題獻/首演":"w_dedication"};
+  var sec="";
+  txt.split("\n").forEach(function(raw){
+    var t=raw.trim();if(!t)return;
+    if(t.indexOf("理想版本目標")>=0){sec="goal";return}
+    if(t.indexOf("樂章明細")>=0){sec="mov";return}
+    var pm=t.match(/^([^:：]+)::\s*(.*)$/);
+    if(pm){
+      var k=pm[1].trim(),v=pm[2].trim();
+      if(!v||k==="type"||k==="記錄日期")return;
+      if(k==="作曲家"){out.f.w_compCus=v.replace(/\[\[|\]\]/g,"");return}
+      if(k==="時期/樂派"){out.wera=v.split(/,\s*/).filter(Boolean);return}
+      if(k==="同類作品"){var m2=v.match(/\[\[作品___([^\]]+)\]\](?:\s*—\s*(.*))?/);
+        if(m2){out.f.w_similar=m2[1];if(m2[2])out.f.w_similarnote=m2[2]}else out.f.w_similar=v;return}
+      if(k==="資料來源"){var sp=v.split(/\s+—\s+/);out.wsrc.push({d:sp[0]||"",u:sp[1]||""});return}
+      if(map[k])out.f[map[k]]=v;
+      return;
+    }
+    if(sec==="goal"){
+      var gm=t.match(/^(敘事|速度|音色|風格|結構焦點)[:：]\s*(.*)$/);
+      if(gm)out.f[{敘事:"goal_narrative",速度:"goal_tempo",音色:"goal_timbre",風格:"goal_style",結構焦點:"goal_structure"}[gm[1]]]=gm[2];
+      return;
+    }
+    if(sec==="mov"){
+      var mm=t.match(/^([IVX]+\.)\s*(.*)$/);
+      if(mm)out.movs.push({l:mm[1],txt:mm[2]||""});
+    }
+  });
+  if(out.movs.length===0)out.movs=[{l:"I.",txt:""}];
+  return out;
+}
+function MG_parseMus(txt){
+  var out={f:{},S:{},perf:[],notes:[],likes:[],dis:[],chg:[],exp:[],wera:[],mtype:[],mroles:[],minst:[],wsrc:[],msrc:[],movs:[{l:"I.",txt:""}]};
+  txt.split("\n").forEach(function(raw){
+    var t=raw.trim();if(!t)return;
+    var pm=t.match(/^([^:：]+)::\s*(.*)$/);
+    if(!pm){
+      var ap=t.match(/^📎\s*(.*)$/);
+      if(ap){var sp2=ap[1].split(/\s+—\s+/);out.msrc.push({d:sp2[0]||"",u:sp2[1]||""})}
+      return;
+    }
+    var k=pm[1].trim(),v=pm[2].trim();
+    if(!v||k==="type"||k==="記錄日期")return;
+    if(k==="別名")out.f.m_alias=v;
+    else if(k==="類型")out.mtype=v.split(/,\s*/).filter(Boolean);
+    else if(k==="樂器")out.minst=v.split(/,\s*/).filter(Boolean);
+    else if(k==="Roles")out.mroles=v.split(/,\s*/).filter(Boolean);
+    else if(k==="Style-Era")out.f.m_styleera=v;
+    else if(k==="活躍年代"){var yy=v.split(/[–—-]\s*/);out.f.m_from=yy[0]||"";out.f.m_to=yy[1]||""}
+    else if(k==="一句話")out.f.m_oneline=v;
+  });
+  return out;
+}
+/* ⭐ 從維基頁載入返生成器表單 */
+async function MG_loadFromWiki(obj){
+  var br=await SDB.from("blocks").select("content").eq("page_id",obj.id).order("order_num");
+  var txt=(br.data||[]).map(function(x){return x.content}).join("\n\n");
+  if(!txt){MG_toast("呢頁冇內容");return}
+  var parsed=obj.kind==="ver"?MG_parseVer(txt):obj.kind==="work"?MG_parseWork(txt):MG_parseMus(txt);
+  if(!confirm("載入呢張卡會覆蓋而家表單，確定？"))return;
+  MG_applyState(parsed);
+  MG_show(obj.kind);
+  window.scrollTo(0,0);
+  MG_toast("已載入 ✓ 改完撳📥存入維基就更新同一頁");
+}
+window.MG_editFromWiki=function(id,kind){
+  try{sessionStorage.setItem("mg_pending_edit",JSON.stringify({id:id,kind:kind}))}catch(e){}
+  location.hash="#/tool/musgen";
+};
+window.MG_collapseAll=MG_collapseAll;
+        
 async function viewMusGen(){
   if(!el("wrap"))buildShell();sidebarClose();
   if(MG_yt){try{MG_yt.destroy()}catch(e){}MG_yt=null}
@@ -937,6 +1060,8 @@ async function viewMusGen(){
   html+='<button id="tb-mus" onclick="MG_show(\'mus\')">🎻 音樂人</button>';
   html+='<button id="tb-voc" onclick="MG_show(\'voc\')">📚 詞庫</button>';
   html+='<button id="tb-ov" onclick="MG_show(\'ov\')">📋 總覽</button></div>';
+  html+='<div style="display:flex;gap:6px;margin:-2px 0 6px"><button class="gbtn" style="flex:1" onclick="MG_collapseAll(1)">⤴ 全部收起</button><button class="gbtn" style="flex:1" onclick="MG_collapseAll(0)">⤵ 全部展開</button></div>';
+  
   /* ── 版本（雙欄） ── */
   html+='<div class="gpage show" id="pg-ver"><div class="wb">';
   html+='<div class="wbL">';
@@ -1074,8 +1199,12 @@ async function viewMusGen(){
   html+='</div>';
   html+='<div id="mgMini"><span class="mtime" id="mgMiniTime">–</span><button onclick="MG_togglePlay()">▶/⏸</button><button onclick="MG_pin()">⏱ 落釘</button></div>';
   el("main").innerHTML=html;
-  MG_mount();
+    MG_mount();
+  MG_bindCollapse();
+  var pe=null;try{pe=sessionStorage.getItem("mg_pending_edit")}catch(e){}
+  if(pe){try{sessionStorage.removeItem("mg_pending_edit");MG_loadFromWiki(JSON.parse(pe))}catch(e){}}
 }
+  
 
 /* ⭐ 聯想下拉 */
 var MG_AC={box:null,target:null,idx:-1,items:[],q:""};
@@ -1411,7 +1540,7 @@ function MG_pin(){
   if(!MG_yt||!MG_yt.getCurrentTime){MG_toast("播放器未ready");return}
   var t=Math.floor(MG_yt.getCurrentTime());var lab=Math.floor(t/60)+":"+("0"+t%60).slice(-2);
   if(MG_LF.type!=="note"||!MG_notes[MG_LF.i]||MG_notes[MG_LF.i].del){MG_addNote();MG_LF={type:"note",i:MG_notes.length-1}}
-  MG_notes[MG_LF.i].t=lab;MG_redrawNotes();MG_save();MG_toast("落釘 "+lab);
+  MG_notes[MG_LF.i].t=lab;MG_redrawNotes();MG_save();MG_ensureOpen("逐段筆記");MG_toast("落釘 "+lab);
 }
 function MG_togglePlay(){
   if(!MG_yt||!MG_yt.getPlayerState){MG_toast("播放器未ready");return}
